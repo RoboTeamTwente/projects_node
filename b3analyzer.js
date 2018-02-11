@@ -10,7 +10,7 @@ try{
 	fs = require('fs-extra')
 }catch(e){
 	l("One or more modules not found. installing modules...")
-	require('child_process').execSync("npm install lodash readline-sync fs-extra path ")
+	require('child_process').execSync("npm install lodash readline-sync fs-extra path --loglevel=error")
 
 	l("Modules installed, please restart")
 	process.exit(0)
@@ -120,7 +120,7 @@ _.each(state.projects, project => {
 
 function showProject(projectId){
 	let project = state.projects[projectId]
-	l("DETAILS OF PROJECT " + projectId)
+	l("\nDETAILS OF PROJECT " + projectId)
 	l(len("│ name", 15) + " : " + project.name)
 	l(len("│ description", 15) + " : " + project.description)
 	l(len("│ trees", 15) + " : " + project.data.trees.length)
@@ -146,7 +146,10 @@ function showTree(treeId){
 		let l = (arg) => console.log(indent + arg)
 		
 		let node = nodes[nodeName]
-		l(node.name)
+		// Find id of node by name
+		let id = _.findKey(state.nodes, { name : node.name })
+
+		l(id + " " + node.name)
 		
 		if(node.children){
 			_.each(node.children, node_id => {
@@ -268,6 +271,7 @@ function repl(){
 
 function showHelp(){
 	l("==== help =====")
+	l("help    : Show this window")
 	l("p       : Show all projects")
 	l("t       : Show all trees")
 	l("n       : Show all nodes")
