@@ -144,7 +144,7 @@ function showTree(treeId){
 	l("\nDETAILS OF TREE " + tree.id)
 	l("│ title   : " + tree.title)
 	l("│ project : " + tree.project)
-	l("│ usage   : ");
+	l("│ usage   : " + tree.usage);
 	l("│ usedBy  : ");
 
 	_.each(tree.usedBy, t => {
@@ -158,7 +158,7 @@ function showTree(treeId){
 	let project    = _.find(state.projects, {'name' : tree.project })
 	// Find actual tree
 	let actualTree = _.find(project.data.trees, {'title' : tree.title })
-	
+	// Keeps track of the nodes that are used
 	let nodesUsed = []
 
 	let printTree = (nodes, nodeName, indent = '') => {
@@ -190,9 +190,13 @@ function showTree(treeId){
 	// Print the tree
 	printTree(actualTree.nodes, actualTree.root, '│ ')
 
+	// Check if there are nodes that are floating
 	let allNodes = _.map(actualTree.nodes, (v, k) => k)
 	let nodesUnused = _.difference(allNodes, nodesUsed)
 	
+	if(!nodesUnused.length)
+		return
+
 	l("│\n│ Floaters: ")
 	_.each(nodesUnused, n => { 
 		let node = actualTree.nodes[n]
@@ -460,7 +464,7 @@ _.each(state.nodes, node => {
 	// Load file from filepath
 	let file = fs.readFileSync(node.filepath, {encoding : 'utf8'})
 	// Regex
-	let treeAssignmentRegex = new RegExp("\\.tree ?= ?\"(.*)\"", "g")
+	let treeAssignmentRegex = new RegExp(/^(?! +\/\/.*$).*\.tree ?= ?\"(.*)\"/, "gm")
 
 	// Find regex in file
 	let match, assignments = []
@@ -489,22 +493,7 @@ _.each(state.nodes, node => {
 		tree.usedBy.push(node.id)
 		tree.usedBy = _.uniq(tree.usedBy)
 		tree.usage = tree.usedBy.length
-
-		// if(tree.project)	l("\t" + (tree.project + "/" + tree.title))
-		// else				l("\t" + tree.title)
-
-
-
-
-		// let nodes = _.filter(state.trees, t => {
-		// 	if(a != "" && a == (t.project + "/" + t.title)){
-		// 		aFound = true
-		// 		// l("    found " + a + " in tree : " + (t.project + "/" + t.title))
-		// 		l(node.name + " => " + (t.project + "/" + t.title))
-		// 	}
-		// })
-		// if(!aFound)
-		// 	l("    Warning : Assignment not found in trees! " + node.name + " => " + a)
+		
 	})
 })
 
