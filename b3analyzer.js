@@ -1,16 +1,17 @@
 l = console.log
 let len = (str = "", size = str.length, char = ' ') => (str + Array(500).join(char)).substr(0, size)
 
-let _, path, rl, fs
+let execSync, _, path, rl, fs
 
 try{
+	execSync = require('child_process').execSync
 	_ = require('lodash')
 	path = require('path')
 	rl = require('readline-sync')
 	fs = require('fs-extra')
 }catch(e){
 	l("One or more modules not found. installing modules...")
-	require('child_process').execSync("npm install lodash readline-sync fs-extra path --loglevel=error")
+	execSync("npm install lodash readline-sync fs-extra path --loglevel=error")
 
 	l("Modules installed, please restart")
 	process.exit(0)
@@ -25,8 +26,8 @@ state.paths = {}
 
 // Workspace path
 state.paths.ws = process.env.ROS_PACKAGE_PATH.split(":")[0]
-// Tactics path
-state.paths.tactics = path.join(state.paths.ws, "roboteam_tactics", "src", "tactics")
+// roboteam_tactics/src path
+state.paths.src = path.join(state.paths.ws, "roboteam_tactics", "src")
 // Projects path
 state.paths.projects = path.join(state.paths.ws, "roboteam_tactics", "src", "trees", "projects")
 // Projects
@@ -69,7 +70,9 @@ _.each(state.projects, project => {
 				category : node.category,
 				usage : 0,
 				usedBy : [],
-				id : idFactory
+				id : idFactory,
+				filepath : null,
+				type : ""
 			}
 			idFactory++
 		}
@@ -107,7 +110,9 @@ _.each(state.projects, project => {
 					category : node.category,
 					usage : 0,
 					usedBy : [],
-					id : idFactory
+					id : idFactory,
+					filepath : null,
+					type : ""
 				}
 				idFactory++
 			}
@@ -177,6 +182,8 @@ function showNode(nodeId){
 	l("\nDETAILS OF NODE " + nodeId)
 	l("│ name     : " + node.name)
 	l("│ category : " + node.category)
+	l("│ type     : " + node.type)
+	l("│ filepath : " + node.filepath)
 	l("│ usage    : " + node.usage)
 	
 	if(node.usage == 0)
@@ -264,7 +271,8 @@ function repl(){
 		if(args[0] == "n"){
 			if(args.length == 1){
 				l("\nLIST OF ALL NODES : " + _.keys(state.nodes).length)
-				printTable(state.nodes, ['id', 'name', 'usage'], ['usage', 'name'], ['desc', 'asc'])
+				// printTable(state.nodes, ['id', 'name', 'usage'], ['usage', 'name'], ['desc', 'asc'])
+				printTable(state.nodes, ['id', 'name', 'usage', 'type'], ['name', 'usage'], ['asc', 'desc'])
 			}
 		}
 
@@ -367,19 +375,69 @@ function printTable(obj, keys, orderKeys, orderDir){
 
 }
 
+/* ======== Link filepath and type to corresponding node ======== */
+l("\nLinking all registered files to corresponding node..")
+// Grep all files for RTT_REGISTER_
+let cmd = "grep -r RTT_REGISTER_"
+let cmdPath = state.paths.src
+let output = execSync(cmd, {encoding : 'utf8', cwd : cmdPath})
+// Split output into filename and code
+let filesAndCode = _.map(output.trim().split("\n"), f => f.split(":"))
+// For each fileAndCode, find corresponding state.node
+_.each(filesAndCode, ([filename, code]) => {
+	let filepath = path.join(state.paths.src, filename)
+	let match, reg = /RTT_REGISTER_(.*?)_?F? ?\((.*)\);/
+	// Execute regex
+	if(match = code.match(reg)){
+		// Extract name and type
+		let type = match[1]
+		let registeredAs = match[2].replace(", ", "/")
+		// Find matching node based on name
+		let node = _.find(state.nodes, {name : registeredAs})
+		if(node){
+			// Add filepath and type to node
+			node.filepath = filepath
+			node.type = type
+		}else{
+			l("Warning : " + type + " " + registeredAs + " registered, but not found in any .b3 json file")
+		}
+	}
+})
+/* ============================================================== */
+
+/* ==== Check if there as still nodes without filepaths, such as predefined tactics ==== */
+l("\nChecking if each node has an associated file..")
+_.each(state.nodes, node => {
+	if(node.filepath)
+		return
+
+	let filesFound = execSync(`find -name ${node.name}.cpp`, {encoding : 'utf8', cwd : path.join(state.paths.ws, "roboteam_tactics")})
+	filesFound = filesFound.trim().split("\n")
+	
+	if(filesFound.length == 1)
+		node.filepath = filesFound[0]
+	if(filesFound.length > 1)
+		l("Warning : " + node.id + " " + node.name + "   has more than one file -> " + filesFound)
+	if(!filesFound[0].length)
+		l("Warning : " + node.id + " " + node.name + "   has no file. Used " + node.usage + " times")
+})
+/* ===================================================================================== */
+
+/* ==== Link plays to roles, by looking for tree assignments in file ==== */
+_.each(state.nodes, node => {
+	// If node has no filepath. return
+	if(!node.filepath)
+		return
+	
+	
+	// l(node.name, node.filepath)
+})
+
+
+
 repl()
 return
 
-
-
-
-
-let cmd = "grep -rl RTT_REGISTER_TACTIC"
-let output = require('child_process').execSync(cmd, {encoding : 'utf8', cwd : state.paths.tactics})
-l("--")
-l(output.trim())
-l("--")
-return
 
 
 
