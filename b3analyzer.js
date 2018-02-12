@@ -25,6 +25,8 @@ state.paths = {}
 
 // Workspace path
 state.paths.ws = process.env.ROS_PACKAGE_PATH.split(":")[0]
+// Tactics path
+state.paths.tactics = path.join(state.paths.ws, "roboteam_tactics", "src", "tactics")
 // Projects path
 state.paths.projects = path.join(state.paths.ws, "roboteam_tactics", "src", "trees", "projects")
 // Projects
@@ -88,7 +90,8 @@ _.each(state.projects, project => {
 			title : tree.title,
 			project : project.name,
 			id : idFactory,
-			nNodes : _.keys(tree.nodes).length
+			nNodes : _.keys(tree.nodes).length,
+			usedBy : []
 		}
 		idFactory++
 
@@ -215,6 +218,7 @@ function showProjectTrees(projectId){
 }
 
 function repl(){
+	l()
 	showHelp()
 	
 	while(true){
@@ -364,3 +368,109 @@ function printTable(obj, keys, orderKeys, orderDir){
 }
 
 repl()
+return
+
+
+
+
+
+let cmd = "grep -rl RTT_REGISTER_TACTIC"
+let output = require('child_process').execSync(cmd, {encoding : 'utf8', cwd : state.paths.tactics})
+l("--")
+l(output.trim())
+l("--")
+return
+
+
+
+// _.each(state.nodes, node => extractTreesFromPlay(node))
+
+
+function extractTreesFromPlay(node){
+
+	// l("\nextractTreesFromPlay " + node.name)
+
+	let filename = node.name + ".cpp"
+
+
+	let found = false
+
+	// Look for it in tactics map
+	if(!found){
+		let treeAssignmentRegex = new RegExp("\\.tree ?= ?\"(.*)\"", "g")
+
+		let files = fs.readdirSync(state.paths.tactics)
+		let matches = _.filter(files, file => file.toLowerCase() == (node.name + ".cpp").toLowerCase())
+		if(matches.length == 1){
+			// l("\nFound in tactics : " + node.name + " => " + filename) 
+			found = true
+
+			// =======================
+			let file = fs.readFileSync(path.join(state.paths.tactics, filename), {'encoding' : 'utf8'})
+
+			let match, assignments = []
+			while(match = treeAssignmentRegex.exec(file)){
+				assignments.push(match[1])
+			}
+
+			assignments = _.uniq(assignments)
+			
+			// l("    assignments found : " + assignments.join(" | "))
+			
+			// Check for matching nodes
+			l()
+			_.each(assignments, a => {
+				let aFound = false
+				let nodes = _.filter(state.trees, t => {
+					if(a != "" && a == (t.project + "/" + t.title)){
+						aFound = true
+						// l("    found " + a + " in tree : " + (t.project + "/" + t.title))
+						l(node.name + " => " + (t.project + "/" + t.title))
+					}
+				})
+				if(!aFound)
+					l("    Warning : Assignment not found in trees! " + node.name + " => " + a)
+			})
+
+
+			// =======================
+
+
+		}else if(matches.length > 1){
+			l("  Warning : Found in tactics multiple times : " + matches.join(", "))
+		}
+	}
+
+	return
+
+
+
+	// Look for it in skills map
+	if(!found){
+		let files = fs.readdirSync(path.join(state.paths.ws, "roboteam_tactics", "src", "skills"))
+		let matches = _.filter(files, file => file.toLowerCase() == (node.name + ".cpp").toLowerCase())
+		if(matches.length){
+			l("  Found in skills : " + node.name)
+			found = true
+		}
+	}
+
+	// Look for it in conditions map
+	if(!found){
+		let files = fs.readdirSync(path.join(state.paths.ws, "roboteam_tactics", "src", "conditions"))
+		let matches = _.filter(files, file => file.toLowerCase() == (node.name + ".cpp").toLowerCase())
+		if(matches.length){
+			l("  Found in conditions : " + node.name)
+			found = true
+		}
+	}
+
+	if(!found){
+		l("WARNING! No file found : " + node.name)
+	}
+
+}
+
+// repl()
+
+
