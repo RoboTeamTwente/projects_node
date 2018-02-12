@@ -70,6 +70,7 @@ _.each(state.projects, project => {
 				category : node.category,
 				usage : 0,
 				usedBy : [],
+				uses : [],
 				id : idFactory,
 				filepath : null,
 				type : ""
@@ -111,6 +112,7 @@ _.each(state.projects, project => {
 					category : node.category,
 					usage : 0,
 					usedBy : [],
+					uses : [],
 					id : idFactory,
 					filepath : null,
 					type : ""
@@ -129,7 +131,8 @@ _.each(state.projects, project => {
 
 function showProject(projectId){
 	let project = state.projects[projectId]
-	l("\nDETAILS OF PROJECT " + projectId)
+	l()
+	l("┼DETAILS OF PROJECT " + projectId)
 	l(len("│ name", 15) + " : " + project.name)
 	l(len("│ description", 15) + " : " + project.description)
 	l(len("│ trees", 15) + " : " + project.data.trees.length)
@@ -141,18 +144,22 @@ function showProject(projectId){
 function showTree(treeId){
 	let tree = state.trees[treeId]
 
-	l("\nDETAILS OF TREE " + tree.id)
+	l()
+	l("┼DETAILS OF TREE " + tree.id)
 	l("│ title   : " + tree.title)
 	l("│ project : " + tree.project)
 	l("│ usage   : " + tree.usage);
-	l("│ usedBy  : ");
+	l("│ ")
+	
+	if(tree.usedBy.length){
+		l("│ used by " + tree.usedBy.length + " nodes : ");
+		_.each(tree.usedBy, t => {
+			let node = state.nodes[t]
+			l("│   " + node.id + " " + node.name)
+		})
+	}
 
-	_.each(tree.usedBy, t => {
-		let node = state.nodes[t]
-		l("│   " + node.id + " " + node.name)
-	})
-
-	l("┼───────────────────────────")
+	l("┼TREE───────────────────────")
 
 	// Find actual project
 	let project    = _.find(state.projects, {'name' : tree.project })
@@ -208,27 +215,41 @@ function showTree(treeId){
 
 function showNode(nodeId){
 	let node = _.filter(state.nodes, n => n.id == nodeId)[0]
-	l("\nDETAILS OF NODE " + nodeId)
+	l()
+	l("┼DETAILS OF NODE " + nodeId)
 	l("│ name     : " + node.name)
 	l("│ category : " + node.category)
 	l("│ type     : " + node.type)
 	l("│ filepath : " + node.filepath)
 	l("│ usage    : " + node.usage)
 	
-	if(node.usage == 0)
-		return
+	if(node.usage > 0){
+		l("│ ")
+		l("├USED BY STRATEGIES :")
+		l("│ ")
 
-	l("│ usedBy   :")
-	l("│ ")
+		let treesCount = _.countBy(node.usedBy)
+		let treeObjs = _.map(treesCount, (count, treeId) => {
+			let o = _.clone(state.trees[treeId])
+			o.usage = count
+			return o
+		})
+		printTable(treeObjs, ['id', 'title', 'usage'])
+	}
 
-	let treesCount = _.countBy(node.usedBy)
-	let treeObjs = _.map(treesCount, (count, treeId) => {
-		let o = _.clone(state.trees[treeId])
-		o.usage = count
-		return o
-	})
+	if(node.uses.length > 0){
+		l("│ ")
+		l("├USES ROLES :")
+		l("│ ")
 
-	printTable(treeObjs, ['id', 'title', 'usage'])
+		let treesCount = _.countBy(node.uses)
+		let treeObjs = _.map(treesCount, (count, treeId) => {
+			let o = _.clone(state.trees[treeId])
+			o.usage = count
+			return o
+		})
+		printTable(treeObjs, ['id', 'title', 'usage'])
+	}	
 }
 
 function showAllProjects(){
@@ -249,7 +270,7 @@ function showProjectTrees(projectId){
 	let project = state.projects[projectId]
 	let trees = _.filter(state.trees, t => t.project == project.name)
 	l("│ ")
-	l("TREES OF PROJECT")
+	l("┼TREES OF PROJECT")
 	printTable(trees, ['id', 'title', 'nNodes'], ['title'], ['asc'])
 }
 
@@ -258,7 +279,7 @@ function repl(){
 	showHelp()
 	
 	while(true){
-		let input = rl.question("\n$ ")
+		let input = rl.question("\n\n$ ")
 		let args = input.split(" ")
 
 		if(args.length < 1 || args[0] == "help"){
@@ -463,7 +484,7 @@ _.each(state.nodes, node => {
 
 	// Load file from filepath
 	let file = fs.readFileSync(node.filepath, {encoding : 'utf8'})
-	// Regex
+	// Regex, uses negative lookahead to ignore commented-out trees
 	let treeAssignmentRegex = new RegExp(/^(?! +\/\/.*$).*\.tree ?= ?\"(.*)\"/, "gm")
 
 	// Find regex in file
@@ -493,7 +514,9 @@ _.each(state.nodes, node => {
 		tree.usedBy.push(node.id)
 		tree.usedBy = _.uniq(tree.usedBy)
 		tree.usage = tree.usedBy.length
-		
+
+		node.uses.push(tree.id)
+
 	})
 })
 
