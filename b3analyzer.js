@@ -149,7 +149,11 @@ function showTree(treeId){
 		// Find id of node by name
 		let id = _.findKey(state.nodes, { name : node.name })
 
-		l(id + " " + node.name)
+		// If the node has parameters set
+		if(_.keys(node.properties).length)
+			l(id + " " + node.name + " | " + _.map(node.properties, (v,k) => k + "="+v ).join(" "))
+		else
+			l(id + " " + node.name)
 		
 		if(node.children){
 			_.each(node.children, node_id => {
