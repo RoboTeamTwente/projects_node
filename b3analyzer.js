@@ -94,6 +94,7 @@ _.each(state.projects, project => {
 			project : project.name,
 			id : idFactory,
 			nNodes : _.keys(tree.nodes).length,
+			usage : 0,
 			usedBy : []
 		}
 		idFactory++
@@ -143,6 +144,14 @@ function showTree(treeId){
 	l("\nDETAILS OF TREE " + tree.id)
 	l("│ title   : " + tree.title)
 	l("│ project : " + tree.project)
+	l("│ usage   : ");
+	l("│ usedBy  : ");
+
+	_.each(tree.usedBy, t => {
+		let node = state.nodes[t]
+		l("│   " + node.id + " " + node.name)
+	})
+
 	l("┼───────────────────────────")
 
 	// Find actual project
@@ -150,6 +159,8 @@ function showTree(treeId){
 	// Find actual tree
 	let actualTree = _.find(project.data.trees, {'title' : tree.title })
 	
+	let nodesUsed = []
+
 	let printTree = (nodes, nodeName, indent = '') => {
 		let l = (arg) => console.log(indent + arg)
 		
@@ -163,6 +174,9 @@ function showTree(treeId){
 		else
 			l(id + " " + node.name)
 		
+		// Add key of node to nodesUsed
+		nodesUsed.push(node.id)
+
 		if(node.children){
 			_.each(node.children, node_id => {
 				printTree(nodes, node_id, indent + '    ')
@@ -175,6 +189,17 @@ function showTree(treeId){
 
 	// Print the tree
 	printTree(actualTree.nodes, actualTree.root, '│ ')
+
+	let allNodes = _.map(actualTree.nodes, (v, k) => k)
+	let nodesUnused = _.difference(allNodes, nodesUsed)
+	
+	l("│\n│ Floaters: ")
+	_.each(nodesUnused, n => { 
+		let node = actualTree.nodes[n]
+		let nodeId = _.findKey(state.nodes, {name : node.name})
+
+		l("│   " + nodeId + " " + node.name)
+	})
 }
 
 function showNode(nodeId){
@@ -279,7 +304,7 @@ function repl(){
 		if(args[0] == "t"){
 			if(args.length == 1){
 				l("\nLIST OF ALL TREES")
-				printTable(state.trees, ['id', 'title', 'nNodes'], ['title'], ['asc'])
+				printTable(state.trees, ['id', 'title', 'usage'], ['usage'], ['desc'])
 			}
 		}
 	}
@@ -414,8 +439,10 @@ _.each(state.nodes, node => {
 	let filesFound = execSync(`find -name ${node.name}.cpp`, {encoding : 'utf8', cwd : path.join(state.paths.ws, "roboteam_tactics")})
 	filesFound = filesFound.trim().split("\n")
 	
-	if(filesFound.length == 1)
-		node.filepath = filesFound[0]
+	if(filesFound[0].length){
+		node.filepath = path.join(state.paths.ws, "roboteam_tactics", filesFound[0])
+		node.type = "unknown"
+	}
 	if(filesFound.length > 1)
 		l("Warning : " + node.id + " " + node.name + "   has more than one file -> " + filesFound)
 	if(!filesFound[0].length)
@@ -424,111 +451,64 @@ _.each(state.nodes, node => {
 /* ===================================================================================== */
 
 /* ==== Link plays to roles, by looking for tree assignments in file ==== */
+l("\nGoing .cpp files of plays, looking for roles..")
 _.each(state.nodes, node => {
 	// If node has no filepath. return
 	if(!node.filepath)
 		return
-	
-	
-	// l(node.name, node.filepath)
+
+	// Load file from filepath
+	let file = fs.readFileSync(node.filepath, {encoding : 'utf8'})
+	// Regex
+	let treeAssignmentRegex = new RegExp("\\.tree ?= ?\"(.*)\"", "g")
+
+	// Find regex in file
+	let match, assignments = []
+	while(match = treeAssignmentRegex.exec(file))
+		assignments.push(match[1])
+	assignments = _.uniq(assignments)
+		
+	if(!assignments.length)
+		return
+
+	// For each assignment
+	_.each(assignments, treeName => {
+
+		// Find the tree in state.trees
+		let tree = _.find(state.trees, tree => {
+			if(tree.project)	return (tree.project + "/" + tree.title) == treeName
+			else				return tree.title == treeName
+		})
+
+		// If no tree has been found, then the play uses a non-exsting tree
+		if(!tree){
+			l("Warning : play " + node.id + " " + node.name + " uses non-existent tree " + treeName + ". Play used " + node.usage + " times")
+			return 
+		}
+
+		tree.usedBy.push(node.id)
+		tree.usedBy = _.uniq(tree.usedBy)
+		tree.usage = tree.usedBy.length
+
+		// if(tree.project)	l("\t" + (tree.project + "/" + tree.title))
+		// else				l("\t" + tree.title)
+
+
+
+
+		// let nodes = _.filter(state.trees, t => {
+		// 	if(a != "" && a == (t.project + "/" + t.title)){
+		// 		aFound = true
+		// 		// l("    found " + a + " in tree : " + (t.project + "/" + t.title))
+		// 		l(node.name + " => " + (t.project + "/" + t.title))
+		// 	}
+		// })
+		// if(!aFound)
+		// 	l("    Warning : Assignment not found in trees! " + node.name + " => " + a)
+	})
 })
 
 
 
 repl()
 return
-
-
-
-
-// _.each(state.nodes, node => extractTreesFromPlay(node))
-
-
-function extractTreesFromPlay(node){
-
-	// l("\nextractTreesFromPlay " + node.name)
-
-	let filename = node.name + ".cpp"
-
-
-	let found = false
-
-	// Look for it in tactics map
-	if(!found){
-		let treeAssignmentRegex = new RegExp("\\.tree ?= ?\"(.*)\"", "g")
-
-		let files = fs.readdirSync(state.paths.tactics)
-		let matches = _.filter(files, file => file.toLowerCase() == (node.name + ".cpp").toLowerCase())
-		if(matches.length == 1){
-			// l("\nFound in tactics : " + node.name + " => " + filename) 
-			found = true
-
-			// =======================
-			let file = fs.readFileSync(path.join(state.paths.tactics, filename), {'encoding' : 'utf8'})
-
-			let match, assignments = []
-			while(match = treeAssignmentRegex.exec(file)){
-				assignments.push(match[1])
-			}
-
-			assignments = _.uniq(assignments)
-			
-			// l("    assignments found : " + assignments.join(" | "))
-			
-			// Check for matching nodes
-			l()
-			_.each(assignments, a => {
-				let aFound = false
-				let nodes = _.filter(state.trees, t => {
-					if(a != "" && a == (t.project + "/" + t.title)){
-						aFound = true
-						// l("    found " + a + " in tree : " + (t.project + "/" + t.title))
-						l(node.name + " => " + (t.project + "/" + t.title))
-					}
-				})
-				if(!aFound)
-					l("    Warning : Assignment not found in trees! " + node.name + " => " + a)
-			})
-
-
-			// =======================
-
-
-		}else if(matches.length > 1){
-			l("  Warning : Found in tactics multiple times : " + matches.join(", "))
-		}
-	}
-
-	return
-
-
-
-	// Look for it in skills map
-	if(!found){
-		let files = fs.readdirSync(path.join(state.paths.ws, "roboteam_tactics", "src", "skills"))
-		let matches = _.filter(files, file => file.toLowerCase() == (node.name + ".cpp").toLowerCase())
-		if(matches.length){
-			l("  Found in skills : " + node.name)
-			found = true
-		}
-	}
-
-	// Look for it in conditions map
-	if(!found){
-		let files = fs.readdirSync(path.join(state.paths.ws, "roboteam_tactics", "src", "conditions"))
-		let matches = _.filter(files, file => file.toLowerCase() == (node.name + ".cpp").toLowerCase())
-		if(matches.length){
-			l("  Found in conditions : " + node.name)
-			found = true
-		}
-	}
-
-	if(!found){
-		l("WARNING! No file found : " + node.name)
-	}
-
-}
-
-// repl()
-
-
