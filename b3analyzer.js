@@ -427,7 +427,6 @@ function repl(){
 	while(true){
 		let input = rl.question("\n\n$ ")
 		let args = input.split(" ")
-		l(args)
 
 		if(args.length < 1 || args[0] == "help"){
 			showHelp()
