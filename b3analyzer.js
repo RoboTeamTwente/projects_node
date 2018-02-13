@@ -441,6 +441,14 @@ function showProjectTrees(projectId){
 	printTable(trees, ['id', 'title', 'nNodes'], ['title'], ['asc'])
 }
 
+
+
+/* ========================================================================================================================== */
+/* ============================================================ REPL ======================================================== */
+/* ========================================================================================================================== */
+
+
+
 function repl(){
 	l()
 	showHelp()
@@ -480,7 +488,13 @@ function repl(){
 
 			let node = state.nodes[id]
 			if(node){
-				showNode(id)
+				if(args[1] == "open")
+					if(node.filepath)
+						execSync("subl " + node.filepath)
+					else
+						l("Warning : node " + node.id + " " + node.name + " has no associated file")
+				else
+					showNode(id)
 				continue
 			}
 
@@ -501,7 +515,6 @@ function repl(){
 			else
 				// printTable(state.nodes, ['id', 'name', 'usage'], ['usage', 'name'], ['desc', 'asc'])
 				printTable(state.nodes, ['id', 'name', 'usage', 'type'], ['name', 'usage'], ['asc', 'desc'])
-		
 		}
 
 		if(args[0] == "t"){
@@ -515,13 +528,18 @@ function repl(){
 }
 
 function showHelp(){
-	l("==== help =====")
-	l("help    : Show this window")
-	l("p       : Show all projects")
-	l("t       : Show all trees")
-	l("n       : Show all nodes")
-	l("[i:int] : show details of project/tree/node i")
-	l("===============\n")
+	l("==== HELP ============================================")
+	l("help   : Show this window")
+	l("p      : Show all projects")
+	l("t      : Show all trees")
+	l("n      : Show all nodes")
+	l("i:int  : show details of project/tree/node i")
+	l("i open : open the file of node i with Sublime Text (throws error if not installed)")
+	l()
+	l("ordering on nodes/trees can be done by appending the key(s) to order on.")
+	l("    to order nodes on type and name : \"n type name\"")
+	l("    to order in a specific direction: \"n usage:desc name:asc\"")
+	l("======================================================\n")
 }
 
 
