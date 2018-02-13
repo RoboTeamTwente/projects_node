@@ -330,6 +330,27 @@ function showTree(treeId){
 		// Add key of node to nodesUsed
 		nodesUsed.push(node.id)
 
+		if(state.nodes[id].uses.length){
+			_.each(state.nodes[id].uses, roleId => {
+				let role = state.trees[roleId]
+				
+				// Find project of role
+				let roleProject = _.find(state.projects, {'name' : role.project })
+				// Find actual role in project
+				let actualRole = _.find(roleProject.data.trees, {'title' : role.title })
+				
+				l("   ROLE : " + roleId + " " + role.title)
+				if(!actualRole){
+
+					l("Warning : could not find actualRole ..?")
+				}else{
+					printTree(actualRole.nodes, actualRole.root, indent + '   │')
+					l("")
+				}
+			})
+			// l("THIS NODE USES TREES OMG PLZ PRINT IT")
+		}
+
 		if(node.children){
 			_.each(node.children, node_id => {
 				printTree(nodes, node_id, indent + '    ')
