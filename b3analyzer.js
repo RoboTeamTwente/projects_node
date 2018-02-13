@@ -293,6 +293,7 @@ function showTree(treeId){
 	l("┼DETAILS OF TREE " + tree.id)
 	l("│ title   : " + tree.title)
 	l("│ project : " + tree.project)
+	l("│ type    : " + tree.type)
 	l("│ usage   : " + tree.usage);
 	l("│ ")
 	
@@ -426,21 +427,25 @@ function repl(){
 	while(true){
 		let input = rl.question("\n\n$ ")
 		let args = input.split(" ")
+		l(args)
 
 		if(args.length < 1 || args[0] == "help"){
 			showHelp()
 		}
 
-		// Extract filtering arguments
-		let filterArgs = [], filterDir = []
+		// Extract sorting arguments
+		let sortArgs = [], sortDirs = []
 		if(args.length > 1){
-
+			let filters = args.slice(1)
+			_.each(filters, filter => {
+				sortArgs.push(filter.split(":")[0])
+				sortDirs.push(filter.split(":")[1])
+			})
 		}
 
 		// If an id has been entered, load and show the correct object
 		let id = parseInt(args[0])
 		if(!isNaN(id)){
-			
 			let project = state.projects[id]
 			if(project){
 				showProject(id)
@@ -470,18 +475,21 @@ function repl(){
 		}
 
 		if(args[0] == "n"){
-			if(args.length == 1){
-				l("\nLIST OF ALL NODES : " + _.keys(state.nodes).length)
+			l("\nLIST OF ALL NODES : " + _.keys(state.nodes).length)
+			if(sortArgs.length)
+				printTable(state.nodes, ['id', 'name', 'usage', 'type'], sortArgs, sortDirs)
+			else
 				// printTable(state.nodes, ['id', 'name', 'usage'], ['usage', 'name'], ['desc', 'asc'])
 				printTable(state.nodes, ['id', 'name', 'usage', 'type'], ['name', 'usage'], ['asc', 'desc'])
-			}
+		
 		}
 
 		if(args[0] == "t"){
-			if(args.length == 1){
-				l("\nLIST OF ALL TREES")
+			l("\nLIST OF ALL TREES")
+			if(sortArgs.length)
+				printTable(state.trees, ['id', 'title', 'usage', 'type'], sortArgs, sortDirs)
+			else
 				printTable(state.trees, ['id', 'title', 'usage', 'type'], ['usage'], ['desc'])
-			}
 		}
 	}
 }
