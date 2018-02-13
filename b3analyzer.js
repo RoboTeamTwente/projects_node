@@ -17,7 +17,12 @@ try{
 	process.exit(0)
 }
 
+
+
 /* ========================================================================================================================== */
+/* ======================================================= PREPARATION ====================================================== */
+/* ========================================================================================================================== */
+
 
 
 let state = {}
@@ -96,7 +101,8 @@ _.each(state.projects, project => {
 			id : idFactory,
 			nNodes : _.keys(tree.nodes).length,
 			usage : 0,
-			usedBy : []
+			usedBy : [],
+			type : ""
 		}
 		idFactory++
 
@@ -127,7 +133,146 @@ _.each(state.projects, project => {
 	})
 })
 
-/* =========================================================================================================== */
+/* ======== Link filepath and type to corresponding node ======== */
+l("\nLinking all registered files to corresponding node..")
+// Grep all files for RTT_REGISTER_
+let cmd = "grep -r RTT_REGISTER_"
+let cmdPath = state.paths.src
+let output = execSync(cmd, {encoding : 'utf8', cwd : cmdPath})
+// Split output into filename and code
+let filesAndCode = _.map(output.trim().split("\n"), f => f.split(":"))
+// For each fileAndCode, find corresponding state.node
+_.each(filesAndCode, ([filename, code]) => {
+	let filepath = path.join(state.paths.src, filename)
+	let match, reg = /RTT_REGISTER_(.*?)_?F? ?\((.*)\);/
+	// Execute regex
+	if(match = code.match(reg)){
+		// Extract name and type
+		let type = match[1]
+		let registeredAs = match[2].replace(", ", "/")
+		// Find matching node based on name
+		let node = _.find(state.nodes, {name : registeredAs})
+		if(node){
+			// Add filepath and type to node
+			node.filepath = filepath
+			node.type = type
+		}else{
+			l("Warning : " + type + " " + registeredAs + " registered, but not found in any .b3 json file")
+		}
+	}
+})
+/* ============================================================== */
+
+/* ==== Check if there as still nodes without filepaths, such as predefined tactics ==== */
+l("\nChecking if each node has an associated file..")
+_.each(state.nodes, node => {
+	if(node.filepath)
+		return
+
+	let filesFound = execSync(`find -name ${node.name}.cpp`, {encoding : 'utf8', cwd : path.join(state.paths.ws, "roboteam_tactics")})
+	filesFound = filesFound.trim().split("\n")
+	
+	if(filesFound[0].length){
+		node.filepath = path.join(state.paths.ws, "roboteam_tactics", filesFound[0])
+		node.type = "unknown"
+	}
+	if(filesFound.length > 1)
+		l("Warning : " + node.id + " " + node.name + "   has more than one file -> " + filesFound)
+	if(!filesFound[0].length)
+		l("Warning : " + node.id + " " + node.name + "   has no file. Used " + node.usage + " times")
+})
+/* ===================================================================================== */
+
+/* ==== Link plays to roles, by looking for tree assignments in file ==== */
+l("\nGoing through .cpp files of plays, looking for roles..")
+_.each(state.nodes, node => {
+	// If node has no filepath. return
+	if(!node.filepath)
+		return
+
+	// Load file from filepath
+	let file = fs.readFileSync(node.filepath, {encoding : 'utf8'})
+	// Regex, uses negative lookahead to ignore commented-out trees
+	let treeAssignmentRegex = new RegExp(/^(?! +\/\/.*$).*\.tree ?= ?\"(.*)\"/, "gm")
+
+	// Find regex in file
+	let match, assignments = []
+	while(match = treeAssignmentRegex.exec(file))
+		assignments.push(match[1])
+	assignments = _.uniq(assignments)
+		
+	if(!assignments.length)
+		return
+
+	// For each assignment
+	_.each(assignments, treeName => {
+
+		// Find the tree in state.trees
+		let tree = _.find(state.trees, tree => {
+			if(tree.project)	return (tree.project + "/" + tree.title) == treeName
+			else				return tree.title == treeName
+		})
+
+		// If no tree has been found, then the play uses a non-exsting tree
+		if(!tree){
+			l("Warning : play " + node.id + " " + node.name + " uses non-existent tree " + treeName + ". Play used " + node.usage + " times")
+			return 
+		}
+
+		tree.usedBy.push(node.id)
+		tree.usedBy = _.uniq(tree.usedBy)
+		tree.usage = tree.usedBy.length
+
+		node.uses.push(tree.id)
+
+	})
+})
+/* ====================================================================== */
+
+/* ======== Assume type of trees based on their nodes ======== */
+l("\nAssuming type of tree based on type of nodes used..")
+_.each(state.trees, tree => {
+	
+	/* Not the most efficient lookup, but whatever.. */
+	// Find actual project
+	let project    = _.find(state.projects, {'name' : tree.project })
+	// Find actual tree
+	let actualTree = _.find(project.data.trees, {'title' : tree.title })
+	
+	// Collect all the types of nodes used
+	let typesUsed = _.map(actualTree.nodes, actualNode => {
+		return _.find(state.nodes, {name : actualNode.name}).type
+	})
+	typesUsed = _.uniq(typesUsed)
+	
+	/* Assume type. Using TACTIC makes it STRATEGY, using SKILL makes it ROLE */
+	// If tree uses both, it's a conflict
+	if(typesUsed.includes("TACTIC") && typesUsed.includes("SKILL")){
+		l("Warning : tree " + tree.id + " " + tree.title + " uses both tactics and skills!")
+		tree.type = "conflict"
+	// If tree uses TACTIC
+	}else if(typesUsed.includes("TACTIC")){
+		tree.type = "STRATEGY"
+	// If tree uses SKILL
+	}else if(typesUsed.includes("SKILL")){
+		tree.type = "ROLE"
+	// If tree uses neither, it's unknown
+	}else{
+		l("Warning : tree " + tree.id + " " + tree.title + " has unknown type. Uses " + typesUsed.join(", "))
+		tree.type = "unknown"
+	}
+
+
+
+})
+
+
+
+/* ========================================================================================================================== */
+/* ======================================================= REPL FUNCTIONS =================================================== */
+/* ========================================================================================================================== */
+
+
 
 function showProject(projectId){
 	let project = state.projects[projectId]
@@ -286,6 +431,12 @@ function repl(){
 			showHelp()
 		}
 
+		// Extract filtering arguments
+		let filterArgs = [], filterDir = []
+		if(args.length > 1){
+
+		}
+
 		// If an id has been entered, load and show the correct object
 		let id = parseInt(args[0])
 		if(!isNaN(id)){
@@ -329,7 +480,7 @@ function repl(){
 		if(args[0] == "t"){
 			if(args.length == 1){
 				l("\nLIST OF ALL TREES")
-				printTable(state.trees, ['id', 'title', 'usage'], ['usage'], ['desc'])
+				printTable(state.trees, ['id', 'title', 'usage', 'type'], ['usage'], ['desc'])
 			}
 		}
 	}
@@ -425,100 +576,6 @@ function printTable(obj, keys, orderKeys, orderDir){
 
 }
 
-/* ======== Link filepath and type to corresponding node ======== */
-l("\nLinking all registered files to corresponding node..")
-// Grep all files for RTT_REGISTER_
-let cmd = "grep -r RTT_REGISTER_"
-let cmdPath = state.paths.src
-let output = execSync(cmd, {encoding : 'utf8', cwd : cmdPath})
-// Split output into filename and code
-let filesAndCode = _.map(output.trim().split("\n"), f => f.split(":"))
-// For each fileAndCode, find corresponding state.node
-_.each(filesAndCode, ([filename, code]) => {
-	let filepath = path.join(state.paths.src, filename)
-	let match, reg = /RTT_REGISTER_(.*?)_?F? ?\((.*)\);/
-	// Execute regex
-	if(match = code.match(reg)){
-		// Extract name and type
-		let type = match[1]
-		let registeredAs = match[2].replace(", ", "/")
-		// Find matching node based on name
-		let node = _.find(state.nodes, {name : registeredAs})
-		if(node){
-			// Add filepath and type to node
-			node.filepath = filepath
-			node.type = type
-		}else{
-			l("Warning : " + type + " " + registeredAs + " registered, but not found in any .b3 json file")
-		}
-	}
-})
-/* ============================================================== */
-
-/* ==== Check if there as still nodes without filepaths, such as predefined tactics ==== */
-l("\nChecking if each node has an associated file..")
-_.each(state.nodes, node => {
-	if(node.filepath)
-		return
-
-	let filesFound = execSync(`find -name ${node.name}.cpp`, {encoding : 'utf8', cwd : path.join(state.paths.ws, "roboteam_tactics")})
-	filesFound = filesFound.trim().split("\n")
-	
-	if(filesFound[0].length){
-		node.filepath = path.join(state.paths.ws, "roboteam_tactics", filesFound[0])
-		node.type = "unknown"
-	}
-	if(filesFound.length > 1)
-		l("Warning : " + node.id + " " + node.name + "   has more than one file -> " + filesFound)
-	if(!filesFound[0].length)
-		l("Warning : " + node.id + " " + node.name + "   has no file. Used " + node.usage + " times")
-})
-/* ===================================================================================== */
-
-/* ==== Link plays to roles, by looking for tree assignments in file ==== */
-l("\nGoing .cpp files of plays, looking for roles..")
-_.each(state.nodes, node => {
-	// If node has no filepath. return
-	if(!node.filepath)
-		return
-
-	// Load file from filepath
-	let file = fs.readFileSync(node.filepath, {encoding : 'utf8'})
-	// Regex, uses negative lookahead to ignore commented-out trees
-	let treeAssignmentRegex = new RegExp(/^(?! +\/\/.*$).*\.tree ?= ?\"(.*)\"/, "gm")
-
-	// Find regex in file
-	let match, assignments = []
-	while(match = treeAssignmentRegex.exec(file))
-		assignments.push(match[1])
-	assignments = _.uniq(assignments)
-		
-	if(!assignments.length)
-		return
-
-	// For each assignment
-	_.each(assignments, treeName => {
-
-		// Find the tree in state.trees
-		let tree = _.find(state.trees, tree => {
-			if(tree.project)	return (tree.project + "/" + tree.title) == treeName
-			else				return tree.title == treeName
-		})
-
-		// If no tree has been found, then the play uses a non-exsting tree
-		if(!tree){
-			l("Warning : play " + node.id + " " + node.name + " uses non-existent tree " + treeName + ". Play used " + node.usage + " times")
-			return 
-		}
-
-		tree.usedBy.push(node.id)
-		tree.usedBy = _.uniq(tree.usedBy)
-		tree.usage = tree.usedBy.length
-
-		node.uses.push(tree.id)
-
-	})
-})
 
 
 
