@@ -1,7 +1,6 @@
 l = console.log
-let len = (str = "", size = str.length, char = ' ') => (str + Array(500).join(char)).substr(0, size)
 
-let execSync, _, path, rl, fs
+let execSync, _, path, rl, fs, chalk
 
 try{
 	execSync = require('child_process').execSync
@@ -9,15 +8,18 @@ try{
 	path = require('path')
 	rl = require('readline-sync')
 	fs = require('fs-extra')
+	chalk = require('chalk')
 }catch(e){
 	l("One or more modules not found. installing modules...")
-	execSync("npm install lodash readline-sync fs-extra path --loglevel=error")
+	execSync("npm install lodash readline-sync fs-extra path chalk --loglevel=error")
 
 	l("Modules installed, please restart")
 	process.exit(0)
 }
 
+warning = (...args) => l(chalk.yellow("Warning :", ...args))
 
+let len = (str = "", size = str.length, char = ' ') => (str + Array(500).join(char)).substr(0, size)
 
 /* ========================================================================================================================== */
 /* ======================================================= PREPARATION ====================================================== */
@@ -33,6 +35,8 @@ state.paths = {}
 state.paths.ws = process.env.ROS_PACKAGE_PATH.split(":")[0]
 // roboteam_tactics/src path
 state.paths.src = path.join(state.paths.ws, "roboteam_tactics", "src")
+// roboteam_tactics/include/roboteam_tactics path
+state.paths.headers = path.join(state.paths.ws, "roboteam_tactics", "include", "roboteam_tactics")
 // Projects path
 state.paths.projects = path.join(state.paths.ws, "roboteam_tactics", "src", "trees", "projects")
 // Projects
@@ -63,7 +67,7 @@ _.each(state.projects, project => {
 	_.each(project.data.custom_nodes, node => {
 		
 		if(!node.name){		// Fix for some nodes that are "undefined" : { version: '0.3.0', scope: 'node', properties: {} }
-			return l("Warning : node without name", project.name, node)	
+			return warning("node without name", project.name, node)	
 		}
 
 		/* If the node has not been encountered yet, initialize it */
@@ -78,6 +82,7 @@ _.each(state.projects, project => {
 				uses : [],
 				id : idFactory,
 				filepath : null,
+				headerpath : null,
 				type : ""
 			}
 			idFactory++
@@ -121,6 +126,7 @@ _.each(state.projects, project => {
 					uses : [],
 					id : idFactory,
 					filepath : null,
+					headerpath : null,
 					type : ""
 				}
 				idFactory++
@@ -139,25 +145,43 @@ l("\nLinking all registered files to corresponding node..")
 let cmd = "grep -r RTT_REGISTER_"
 let cmdPath = state.paths.src
 let output = execSync(cmd, {encoding : 'utf8', cwd : cmdPath})
+
 // Split output into filename and code
-let filesAndCode = _.map(output.trim().split("\n"), f => f.split(":"))
+let filesAndCode = _.map(output.replace(/ /g, "").trim().split("\n"), f => f.split(":"))
+// let filesAndCode = _.map(output.trim().split("\n"), f => f.split(":"))
+
 // For each fileAndCode, find corresponding state.node
 _.each(filesAndCode, ([filename, code]) => {
+	// l(filename, " ==> ", code)
+
+
 	let filepath = path.join(state.paths.src, filename)
 	let match, reg = /RTT_REGISTER_(.*?)_?F? ?\((.*)\);/
 	// Execute regex
 	if(match = code.match(reg)){
 		// Extract name and type
 		let type = match[1]
-		let registeredAs = match[2].replace(", ", "/")
+		let registeredAs = match[2].replace(",", "/")
+		// l("registeredAs: " + registeredAs)
 		// Find matching node based on name
 		let node = _.find(state.nodes, {name : registeredAs})
 		if(node){
 			// Add filepath and type to node
 			node.filepath = filepath
 			node.type = type
+
+			// Try to find associated header file, assume path and extension
+			let headerfile = filename.replace("cpp", "h")
+			let headerpath = path.join(state.paths.headers, headerfile)
+			// See if header file exists
+			if(fs.pathExistsSync(headerpath)){
+				node.headerpath = headerpath
+			}else{
+				warning("" + type + " " + registeredAs + " does not seem to have an associated header file")
+			}
+
 		}else{
-			l("Warning : " + type + " " + registeredAs + " registered, but not found in any .b3 json file")
+			warning("" + len(type + " " + registeredAs, 20) + " registered, but not found in any .b3 json file")
 		}
 	}
 })
@@ -166,9 +190,11 @@ _.each(filesAndCode, ([filename, code]) => {
 /* ==== Check if there as still nodes without filepaths, such as predefined tactics ==== */
 l("\nChecking if each node has an associated file..")
 _.each(state.nodes, node => {
+	// If node has filepath, skip
 	if(node.filepath)
 		return
 
+	// Search for file that belongs to node
 	let filesFound = execSync(`find -name ${node.name}.cpp`, {encoding : 'utf8', cwd : path.join(state.paths.ws, "roboteam_tactics")})
 	filesFound = filesFound.trim().split("\n")
 	
@@ -177,9 +203,9 @@ _.each(state.nodes, node => {
 		node.type = "unknown"
 	}
 	if(filesFound.length > 1)
-		l("Warning : " + node.id + " " + node.name + "   has more than one file -> " + filesFound)
+		warning("" + len(node.id + " " + node.name, 30) + "   has more than one file -> " + filesFound)
 	if(!filesFound[0].length)
-		l("Warning : " + node.id + " " + node.name + "   has no file. Used " + node.usage + " times")
+		warning(len(node.id + " " + node.name, 30) + "   has no file. Used " + node.usage + " times")
 })
 /* ===================================================================================== */
 
@@ -215,7 +241,7 @@ _.each(state.nodes, node => {
 
 		// If no tree has been found, then the play uses a non-exsting tree
 		if(!tree){
-			l("Warning : play " + node.id + " " + node.name + " uses non-existent tree " + treeName + ". Play used " + node.usage + " times")
+			warning("play " + len(node.id + " " + node.name, 30) + " uses non-existent tree " + treeName + ". Play used " + node.usage + " times")
 			return 
 		}
 
@@ -248,7 +274,7 @@ _.each(state.trees, tree => {
 	/* Assume type. Using TACTIC makes it STRATEGY, using SKILL makes it ROLE */
 	// If tree uses both, it's a conflict
 	if(typesUsed.includes("TACTIC") && typesUsed.includes("SKILL")){
-		l("Warning : tree " + tree.id + " " + tree.title + " uses both tactics and skills!")
+		warning("tree " + tree.id + " " + tree.title + " uses both tactics and skills!")
 		tree.type = "conflict"
 	// If tree uses TACTIC
 	}else if(typesUsed.includes("TACTIC")){
@@ -258,7 +284,7 @@ _.each(state.trees, tree => {
 		tree.type = "ROLE"
 	// If tree uses neither, it's unknown
 	}else{
-		l("Warning : tree " + tree.id + " " + tree.title + " has unknown type. Uses " + typesUsed.join(", "))
+		warning("tree " + tree.id + " " + tree.title + " has unknown type. Uses " + typesUsed.join(", "))
 		tree.type = "unknown"
 	}
 
@@ -342,7 +368,7 @@ function showTree(treeId){
 				l("   ROLE : " + roleId + " " + role.title)
 				if(!actualRole){
 
-					l("Warning : could not find actualRole ..?")
+					warning("could not find actualRole ..?")
 				}else{
 					printTree(actualRole.nodes, actualRole.root, indent + '   │')
 					l("")
@@ -492,7 +518,7 @@ function repl(){
 					if(node.filepath)
 						execSync("subl " + node.filepath)
 					else
-						l("Warning : node " + node.id + " " + node.name + " has no associated file")
+						warning("node " + node.id + " " + node.name + " has no associated file")
 				else
 					showNode(id)
 				continue
