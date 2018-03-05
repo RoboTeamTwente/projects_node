@@ -134,7 +134,7 @@ _.each(state.projects, project => {
 })
 
 /* ======== Link filepath and type to corresponding node ======== */
-l("\nLinking all registered files to corresponding node..")
+l("\nLinking all registered files to corresponding node...")
 // Grep all files for RTT_REGISTER_
 let cmd = "grep -r RTT_REGISTER_"
 let cmdPath = state.paths.src
@@ -164,7 +164,7 @@ _.each(filesAndCode, ([filename, code]) => {
 /* ============================================================== */
 
 /* ==== Check if there as still nodes without filepaths, such as predefined tactics ==== */
-l("\nChecking if each node has an associated file..")
+l("\nChecking if each node has an associated file...")
 _.each(state.nodes, node => {
 	if(node.filepath)
 		return
@@ -184,7 +184,7 @@ _.each(state.nodes, node => {
 /* ===================================================================================== */
 
 /* ==== Link plays to roles, by looking for tree assignments in file ==== */
-l("\nGoing through .cpp files of plays, looking for roles..")
+l("\nGoing through .cpp files of plays, looking for roles...")
 _.each(state.nodes, node => {
 	// If node has no filepath. return
 	if(!node.filepath)
@@ -230,7 +230,7 @@ _.each(state.nodes, node => {
 /* ====================================================================== */
 
 /* ======== Assume type of trees based on their nodes ======== */
-l("\nAssuming type of tree based on type of nodes used..")
+l("\nAssuming type of tree based on type of nodes used...")
 _.each(state.trees, tree => {
 	
 	/* Not the most efficient lookup, but whatever.. */
@@ -419,6 +419,12 @@ function showProjectTrees(projectId){
 	l("┼TREES OF PROJECT")
 	printTable(trees, ['id', 'title', 'nNodes'], ['title'], ['asc'])
 }
+
+
+/* ========================================================================================================================== */
+/* ============================================================ REPL ======================================================== */
+/* ========================================================================================================================== */
+
 
 function repl(){
 	l()
