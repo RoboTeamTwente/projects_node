@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8">
+		<title>RobotCommand GUI</title>
+
+		<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css">
+		<link rel="stylesheet" href="style.css">
+
+
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.1.0/socket.io.slim.js"></script>
+		<script src="https://cdn.jsdelivr.net/npm/vue"></script>
+
+	</head>
+	<body>
+		
+		<div id="app" class="container">
+			
+
+			<div id="console">
+				{{ console }}
+			</div>
+
+			<div v-for="(robot, key) in robots">
+				--
+				<robot :id="key" class="robot col-md-3">
+					<div> {{ key }} </div>
+				</robot>
+				--
+			</div>
+
+			<div class="row">
+				<robot id="robot0" class="robot col-md-3">0</robot>
+				<robot id="robot1" class="robot col-md-3" >1</robot>
+				<robot id="robot2" class="robot col-md-3" >2</robot>
+				<robot id="robot3" class="robot col-md-3" >3</robot>
+			</div>
+
+			<div class="row">
+				<robot id="robot4" :testProp="4" class="robot col-md-3" inline-template>
+					<div> {{ wer }} </div>
+				</robot>
+				<robot id="robot5" class="robot col-md-3" inline-template>
+					<div> {{ wer }} </div>
+				</robot>
+				<robot id="robot6" class="robot col-md-3" inline-template>
+					<div> {{ wer }} </div>
+				</robot>
+				<robot id="robot7" class="robot col-md-3" inline-template>
+					<div> {{ wer }} </div>
+				</robot>
+			</div>
+
+			<div class="row">
+				
+				<robot id="robot8" class="robot col-md-3" inline-template> {{ wer }} </robot>
+				<robot id="robot9" class="robot col-md-3" inline-template>9</robot>
+				<robot id="robot10" class="robot col-md-3" inline-template>10</robot>
+				<robot id="robot11" class="robot col-md-3" inline-template>11</robot>
+				
+			</div>
+
+			<div class="row">
+				<robot id="robot12" class="robot col-md-3" inline-template>12</robot>
+				<robot id="robot13" class="robot col-md-3" inline-template>13</robot>
+				<robot id="robot14" class="robot col-md-3" inline-template>14</robot>
+				<robot id="robot15" class="robot col-md-3" inline-template>15</robot>
+			</div>
+
+			
+		</div>
+
+		<script>
+			
+			class Robot {
+				constructor(id){
+					console.log("New robot", id)
+				}
+			}
+
+			const WIDTH = 4;
+			const HEIGHT= 4;
+
+			let robots = []
+			for(let y = 0; y < HEIGHT; y++){
+				for(let x = 0; x < WIDTH; x++){
+					let id = y * WIDTH + x
+					let robot = new Robot(id)
+					robots[id] = robot
+				}
+			}
+
+			
+
+
+			Vue.component('robot', {
+				props : ['id', 'testProp'],
+				data(){
+					return {
+						wer : "wer",
+						robots
+					}
+				},
+
+				mounted : function(){
+					console.log("Robot", this.id, "mounted!")
+				}
+			})
+
+
+			let app = new Vue({
+				el: '#app',
+				data: { 
+					console : 'Heya!',
+					WIDTH : 4,
+					HEIGHT: 4
+				},
+
+				mounted : function(){
+					console.log("App mounted")
+				}
+			})
+
+		</script>
+
+	</body>
+</html>
+
+
+
+
