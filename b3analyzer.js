@@ -67,7 +67,7 @@ _.each(state.projects, project => {
 	_.each(project.data.custom_nodes, node => {
 		
 		if(!node.name){		// Fix for some nodes that are "undefined" : { version: '0.3.0', scope: 'node', properties: {} }
-			return warning("node without name", project.name, node)	
+			return warning("node without name", project.name)
 		}
 
 		/* If the node has not been encountered yet, initialize it */
@@ -140,6 +140,7 @@ _.each(state.projects, project => {
 })
 
 /* ======== Link filepath and type to corresponding node ======== */
+/* ======== Find header files of node                    ======== */
 l("\nLinking all registered files to corresponding node..")
 // Grep all files for RTT_REGISTER_
 let cmd = "grep -r RTT_REGISTER_"
@@ -152,8 +153,6 @@ let filesAndCode = _.map(output.replace(/ /g, "").trim().split("\n"), f => f.spl
 
 // For each fileAndCode, find corresponding state.node
 _.each(filesAndCode, ([filename, code]) => {
-	// l(filename, " ==> ", code)
-
 
 	let filepath = path.join(state.paths.src, filename)
 	let match, reg = /RTT_REGISTER_(.*?)_?F? ?\((.*)\);/
@@ -173,6 +172,7 @@ _.each(filesAndCode, ([filename, code]) => {
 			// Try to find associated header file, assume path and extension
 			let headerfile = filename.replace("cpp", "h")
 			let headerpath = path.join(state.paths.headers, headerfile)
+
 			// See if header file exists
 			if(fs.pathExistsSync(headerpath)){
 				node.headerpath = headerpath
@@ -209,10 +209,12 @@ _.each(state.nodes, node => {
 })
 /* ===================================================================================== */
 
+
+
 /* ==== Link plays to roles, by looking for tree assignments in file ==== */
 l("\nGoing through .cpp files of plays, looking for roles..")
 _.each(state.nodes, node => {
-	// If node has no filepath. return
+	// If node has no filepath, return
 	if(!node.filepath)
 		return
 
@@ -254,6 +256,44 @@ _.each(state.nodes, node => {
 	})
 })
 /* ====================================================================== */
+
+
+
+/* ====  Link plays/skills to plays/skills, by looking at the header files ==== */
+l("\nGoing through .cpp files of plays and skills, linking all..")
+_.each(state.nodes, node => {
+    // If node has no filepath, return
+    if(!node.filepath)
+        return
+
+    // Load file from filepath
+    let file = fs.readFileSync(node.filepath, {encoding : 'utf8'})
+    // Regex, uses negative lookahead to ignore commented-out includes
+    let treeAssignmentRegex = new RegExp(/^(?! *\/\/.*$).*#include +"roboteam_tactics\/(?:skills|tactics|conditions)\/(.*)\.h"/, "gm")
+
+    // Find regex in file
+    let match, headers = []
+    while(match = treeAssignmentRegex.exec(file))
+        headers.push(match[1])
+    headers = _.uniq(headers)
+
+    // Remove self from header files
+    headers = _.without(headers, node.name)
+
+    if(!headers.length)
+        return
+
+    // For each assignment
+    _.each(headers, header => {
+
+		// Find the play/skill in state.nodes
+		let nodeUsed = _.find(state.nodes, {name : header})
+		// Update usedBy and usage
+		// nodeUsed.usedBy.push(node.id)
+		nodeUsed.usage = nodeUsed.usedBy.length
+
+    })
+})
 
 /* ======== Assume type of trees based on their nodes ======== */
 l("\nAssuming type of tree based on type of nodes used..")
