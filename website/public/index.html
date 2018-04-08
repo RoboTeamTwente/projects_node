@@ -36,20 +36,20 @@
 									<div class="input-group-prepend">
 										<span class="input-group-text" id="inputGroup-sizing-sm">Frequency</span>
 									</div>
-									<input v-model="wave.frequency" @change="waveChanged" type="text" class="form-control" :disabled="running || !connected">
+									<input v-model="wave.frequency" @change="waveChanged" type="text" class="form-control" :disabled="running || !connected || !ros_running">
 								</div>
 								<div class="input-group input-group-sm mb-12">
 									<div class="input-group-prepend">
 										<span class="input-group-text" id="inputGroup-sizing-sm">Amplitude</span>
 									</div>
-									<input v-model="wave.amplitude" @change="waveChanged" type="text" class="form-control" :disabled="running || !connected">
+									<input v-model="wave.amplitude" @change="waveChanged" type="text" class="form-control" :disabled="running || !connected || !ros_running">
 								</div>
 
 								<div class="input-group input-group-sm mb-12">
 									<div class="input-group-prepend">
 										<span class="input-group-text" id="inputGroup-sizing-sm">Offset</span>
 									</div>
-									<input v-model="wave.offset" @change="waveChanged" type="text" class="form-control" :disabled="running || !connected">
+									<input v-model="wave.offset" @change="waveChanged" type="text" class="form-control" :disabled="running || !connected || !ros_running">
 								</div>
 
 							</div>
@@ -60,7 +60,7 @@
 								<div class="input-group-prepend">
 									<label class="input-group-text" for="waveSelector">Wave</label>
 								</div>
-								<select v-model="wave.wave" class="custom-select" id="waveSelector" @change="waveChanged" :disabled="running || !connected">
+								<select v-model="wave.wave" class="custom-select" id="waveSelector" @change="waveChanged" :disabled="running || !connected || !ros_running">
 									<option value="Constant"> Constant </option>
 									<option value="SineWave"> SineWave </option>
 									<option value="CosineWave"> CosineWave </option>
@@ -85,12 +85,12 @@
 						<div class="input-group-prepend">
 							<span class="input-group-text" id="inputGroup-sizing-sm">Robot ID</span>
 						</div>
-						<input v-model="robot_id" @change="robotChanged" type="text" class="form-control" :disabled="running || !connected">
+						<input v-model="robot_id" @change="robotChanged" type="text" class="form-control" :disabled="running || !connected || !ros_running">
 					</div>
 				</div>
 
 				<div class="col-md-8">
-					<button v-on:click="update" type="button" :class="btn.class" class="btn btn-sm btn-block">{{ btn.text }}</button>
+					<button v-on:click="update" type="button" :class="btn.class" class="btn btn-sm btn-block" :disabled="!connected || !ros_running">{{ btn.text }}</button>
 				</div>
 			</div>
 
@@ -141,6 +141,7 @@
 					lastReceived : Date.now(),
 					connected : false,
 					running : false,
+                    ros_running : false,
 					Hz : 0,
 
 					robot_id : 0
@@ -165,6 +166,10 @@
 
 					updateButton : function(){
                         if(this.connected) {
+                            if(!this.ros_running){
+                                this.btn.class = "btn-secondary";
+                                this.btn.text = "Waiting for ros to run..";
+							}else
                             if(this.running) {
                                 this.btn.class = "btn-danger";
                                 this.btn.text = "Stop";
@@ -173,8 +178,8 @@
                                 this.btn.text = "Start";
                             }
                         }else{
-                            this.btn.class = "btn-secondary";
-                            this.btn.text = "Waiting for connection..";
+                           this.btn.class = "btn-secondary";
+                           this.btn.text = "Waiting for connection..";
                         }
 					},
 
@@ -199,8 +204,9 @@
 				}
 			});
 
+			console.log(window.location.hostname);
 
-            let socket = io('http://localhost:3001');
+            let socket = io(window.location.hostname + ':3001');
 
 			socket.on('connect', () => {
 				app.setConnection(true);
@@ -253,6 +259,11 @@
                 console.log("Robot ID changed", robot_id);
 				app.robot_id = robot_id;
 			});
+
+            socket.on('ros_running', ros_running => {
+                app.ros_running = ros_running;
+                app.updateButton();
+            })
 
             const artist = new Artist()
 

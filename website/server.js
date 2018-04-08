@@ -2,6 +2,7 @@ l = console.log;
 
 const SERVER_PORT = 3000;
 const IO_PORT = 3001;
+let ROS_RUNNING = false;
 
 let io = require('socket.io')();
 let express = require('express');
@@ -17,7 +18,10 @@ let rosNode = null;
 ros.initNode('/jsNode').then(_rosNode => {
     rosNode = _rosNode;
     pub = rosNode.advertise('/robotcommands', roboteam_msgs.msg.RobotCommand);
+    ROS_RUNNING = true;
     l("ROS initialized");
+
+    updateClients();
 });
 
 let NCLIENTS = 0;
@@ -40,12 +44,14 @@ let wave3 = new Wave.Wave(2);
 function waveCallback(values){
 	io.sockets.emit('tick', values);
 
-    robotCommand.id = ROBOT_ID;
-	robotCommand.x_vel = values[0];
-    robotCommand.y_vel = values[1];
-    robotCommand.w     = values[2];
+	if(ROS_RUNNING) {
+        robotCommand.id = ROBOT_ID;
+        robotCommand.x_vel = values[0];
+        robotCommand.y_vel = values[1];
+        robotCommand.w = values[2];
 
-    pub.publish(robotCommand);
+        pub.publish(robotCommand);
+    }
 }
 
 const waveManager = new Wave.WaveManager(waveCallback, 50);
@@ -58,6 +64,7 @@ function updateClients(){
 	io.sockets.emit('status', waveManager.getStatus());
     io.sockets.emit('settings', waveManager.getWavesSettings());
 	io.sockets.emit('robot_id', ROBOT_ID);
+	io.sockets.emit('ros_running', ROS_RUNNING);
 }
 
 
@@ -68,6 +75,7 @@ io.on('connection', function(socket){
     socket.emit('status', waveManager.getStatus());
     socket.emit('settings', waveManager.getWavesSettings());
     socket.emit('robot_id', ROBOT_ID);
+    socket.emit('ros_running', ROS_RUNNING);
 
     // Received wave settings
     socket.on('settings', function(settings){
