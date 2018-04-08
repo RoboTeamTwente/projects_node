@@ -1,7 +1,13 @@
 #app {
-	background-color: rgb(244, 244, 255);
+	background-color: rgb(220, 250, 255);
 }
 
-.robot {
-	border: 1px solid black;	
+.wave {
+	border: 1px solid black;
+	padding: 5px;
+}
+
+.canvas {
+	background-color: #333;
+	width: 100%;
 }

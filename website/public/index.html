@@ -10,116 +10,268 @@
 
 		<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.1.0/socket.io.slim.js"></script>
 		<script src="https://cdn.jsdelivr.net/npm/vue"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/lodash.js/4.17.5/lodash.min.js"></script>
 
 	</head>
 	<body>
 		
 		<div id="app" class="container">
-			
 
-			<div id="console">
-				{{ console }}
-			</div>
-
-			<div v-for="(robot, key) in robots">
-				--
-				<robot :id="key" class="robot col-md-3">
-					<div> {{ key }} </div>
-				</robot>
-				--
-			</div>
+			{{ Hz.toFixed(1) }}
 
 			<div class="row">
-				<robot id="robot0" class="robot col-md-3">0</robot>
-				<robot id="robot1" class="robot col-md-3" >1</robot>
-				<robot id="robot2" class="robot col-md-3" >2</robot>
-				<robot id="robot3" class="robot col-md-3" >3</robot>
+				<div v-for="(wave, key) in waves" class="wer col-md-4">
+					<robot :target="TARGETS[key]" :id="key" v-on:wave-changed="updateWave"  class="wave" inline-template>
+						<div>
+							<div>
+								<h2><b>{{ target }}</b> : {{ val.toFixed(4) }}</h2>
+							</div>
+
+							<!-- FREQUENCY, AMPLITUDE, OFFSET -->
+							<div>
+
+								<div class="input-group input-group-sm mb-12">
+									<div class="input-group-prepend">
+										<span class="input-group-text" id="inputGroup-sizing-sm">Frequency</span>
+									</div>
+									<input v-model="wave.frequency" @change="waveChanged" type="text" class="form-control" :disabled="running || !connected">
+								</div>
+								<div class="input-group input-group-sm mb-12">
+									<div class="input-group-prepend">
+										<span class="input-group-text" id="inputGroup-sizing-sm">Amplitude</span>
+									</div>
+									<input v-model="wave.amplitude" @change="waveChanged" type="text" class="form-control" :disabled="running || !connected">
+								</div>
+
+								<div class="input-group input-group-sm mb-12">
+									<div class="input-group-prepend">
+										<span class="input-group-text" id="inputGroup-sizing-sm">Offset</span>
+									</div>
+									<input v-model="wave.offset" @change="waveChanged" type="text" class="form-control" :disabled="running || !connected">
+								</div>
+
+							</div>
+							<!-- ========================= -->
+
+							<!-- WAVE SELECTOR -->
+							<div class="input-group mb-3">
+								<div class="input-group-prepend">
+									<label class="input-group-text" for="waveSelector">Wave</label>
+								</div>
+								<select v-model="wave.wave" class="custom-select" id="waveSelector" @change="waveChanged" :disabled="running || !connected">
+									<option value="None">		None</option>
+									<option value="SineWave"> SineWave </option>
+									<option value="CosineWave"> CosineWave </option>
+									<option value="BlockWave"> BlockWave </option>
+									<option value="SawWave"> SawWave </option>
+									<option value="SineWaveInverted"> SineWaveInverted</option>
+									<option value="CosineWaveInverted"> CosineWaveInverted</option>
+									<option value="BlockWaveInverted"> BlockWaveInverted</option>
+									<option value="SawWaveInverted"> SawWaveInverted</option>
+								</select>
+							</div>
+							<!-- ============= -->
+
+							<br>
+
+						</div>
+					</robot>
+				</div> <!-- // For each robot -->
+
+				<div class="col-md-12">
+					<button v-on:click="update" type="button" :class="btn.class" class="btn btn-sm btn-block">{{ btn.text }}</button>
+				</div>
+
+				<div class="col-md-12">
+					<canvas class="canvas">
+
+					</canvas>
+				</div>
+
 			</div>
 
-			<div class="row">
-				<robot id="robot4" :testProp="4" class="robot col-md-3" inline-template>
-					<div> {{ wer }} </div>
-				</robot>
-				<robot id="robot5" class="robot col-md-3" inline-template>
-					<div> {{ wer }} </div>
-				</robot>
-				<robot id="robot6" class="robot col-md-3" inline-template>
-					<div> {{ wer }} </div>
-				</robot>
-				<robot id="robot7" class="robot col-md-3" inline-template>
-					<div> {{ wer }} </div>
-				</robot>
-			</div>
-
-			<div class="row">
-				
-				<robot id="robot8" class="robot col-md-3" inline-template> {{ wer }} </robot>
-				<robot id="robot9" class="robot col-md-3" inline-template>9</robot>
-				<robot id="robot10" class="robot col-md-3" inline-template>10</robot>
-				<robot id="robot11" class="robot col-md-3" inline-template>11</robot>
-				
-			</div>
-
-			<div class="row">
-				<robot id="robot12" class="robot col-md-3" inline-template>12</robot>
-				<robot id="robot13" class="robot col-md-3" inline-template>13</robot>
-				<robot id="robot14" class="robot col-md-3" inline-template>14</robot>
-				<robot id="robot15" class="robot col-md-3" inline-template>15</robot>
-			</div>
-
-			
 		</div>
 
 		<script>
 			
-			class Robot {
-				constructor(id){
-					console.log("New robot", id)
+			class Wave {
+				constructor(id, wave="SineWave"){
+					console.log("New wave", id);
+
+                    this.id = id;
+                    this.wave = wave;
+                    this.frequency = 1;
+                    this.amplitude = 1;
+                    this.offset = 0;
+
+                    this.val = 0;
+				}
+
+				setVal(val){
+				    this.val = val;
+				}
+
+				getVal(){
+				    return this.val
+				}
+
+				getSettings(){
+				    return {
+				        id: this.id,
+						wave: this.wave,
+						frequency: this.frequency,
+						amplitude: this.amplitude,
+						offset: this.offset
+					}
 				}
 			}
 
-			const WIDTH = 4;
-			const HEIGHT= 4;
+            Vue.component('robot', {
+                props : ['id', 'target'],
+                data(){
+                    return {
+						wave : waves[this.id]
+                    }
+                },
+                computed : {
+					val : function(){
+                        return this.wave.getVal();
+					}
+                },
+				methods : {
+                    waveChanged : function(){
+                        let wave = {
+                        	frequency : this.wave.frequency
+						}
 
-			let robots = []
+						this.$emit('wave-changed', this.wave.getSettings());
+					}
+				},
+                mounted : function(){
+                    console.log("Wave", this.id, "mounted!", this.robot)
+                }
+            });
+
+			// ===================
+
+			const WIDTH = 3;
+			const HEIGHT= 1;
+			const TARGETS = ['x_vel', 'y_vel', 'w']
+
+			let waves = []
 			for(let y = 0; y < HEIGHT; y++){
 				for(let x = 0; x < WIDTH; x++){
 					let id = y * WIDTH + x
-					let robot = new Robot(id)
-					robots[id] = robot
+					let wave = new Wave(id)
+					waves[id] = wave
 				}
 			}
-
-			
-
-
-			Vue.component('robot', {
-				props : ['id', 'testProp'],
-				data(){
-					return {
-						wer : "wer",
-						robots
-					}
-				},
-
-				mounted : function(){
-					console.log("Robot", this.id, "mounted!")
-				}
-			})
-
 
 			let app = new Vue({
 				el: '#app',
 				data: { 
-					console : 'Heya!',
-					WIDTH : 4,
-					HEIGHT: 4
+
+                    btn : {
+					    text : "",
+						class : ""
+                    },
+
+					lastReceived : Date.now(),
+					connected : false,
+					running : false,
+					Hz : 0
+				},
+
+				methods : {
+				    updateHz : function(){
+						let now = Date.now();
+						this.Hz = 1000 / (now - this.lastReceived);
+						this.lastReceived = now;
+					},
+
+                    updateStatus : function(status){
+				        this.running = status.running;
+				        this.updateButton();
+					},
+
+					setConnection : function(isConnected){
+				        this.connected = isConnected;
+						this.updateButton();
+					},
+
+					updateButton : function(){
+                        if(this.connected) {
+                            if(this.running) {
+                                this.btn.class = "btn-danger";
+                                this.btn.text = "Stop";
+                            }else{
+                                this.btn.class = "btn-success";
+                                this.btn.text = "Start";
+                            }
+                        }else{
+                            this.btn.class = "btn-secondary";
+                            this.btn.text = "Waiting for connection..";
+                        }
+					},
+
+                    updateWave : function(settings){
+					    console.log("Updating wave", settings);
+						socket.emit('settings', settings);
+
+					},
+
+                    update : function(){
+				        console.log('Update')
+						socket.emit('control', {
+							running : !this.running
+						})
+
+//						socket.emit('settings', settings)
+					}
 				},
 
 				mounted : function(){
 					console.log("App mounted")
 				}
 			})
+
+
+
+            let socket = io('http://localhost:3001');
+
+			socket.on('connect', () => {
+				app.setConnection(true);
+			})
+			socket.on('disconnect', () => {
+			    app.setConnection(false);
+			})
+
+            socket.on('tick', data => {
+                app.setConnection(true);
+                app.updateHz();
+                _.each(data, (val, id) => {
+                    if(waves[id])
+                        waves[id].setVal(val);
+                })
+            });
+
+            socket.on('status', status => {
+                console.log("Status received:", status)
+                app.updateStatus(status);
+			})
+
+            socket.on('settings', settings => {
+                console.log(settings)
+                _.each(settings, setting => {
+                    let wave = waves[setting.id]
+                    if(wave) {
+                        _.each(setting, (val, key) => {
+                            wave[key] = val
+                        });
+                    }
+                })
+            });
+
 
 		</script>
 
