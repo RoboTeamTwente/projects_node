@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+
+    <script src="https://cdn.jsdelivr.net/npm/vue"></script>
+
+</head>
+<body>
+    <h1> Vue Test</h1>
+
+    <div id="app1">
+        {{ someNumber }}
+    </div>
+
+    <script>
+        let app = new Vue({
+            el : '#app1',
+
+            data : {
+                someNumber : 3,
+                another : 4
+            },
+
+            mounted : function(){
+                console.log("I am mounted!")
+                setInterval(() => {
+                    this.someNumber++
+                }, 1)
+            }
+        })
+    </script>
+
+
+</body>
+</html>

@@ -21,7 +21,7 @@
 
 			<div class="row">
 				<div v-for="(wave, key) in waves" class="wer col-md-4">
-					<robot :target="TARGETS[key]" :id="key" v-on:wave-changed="updateWave"  class="wave" inline-template>
+					<wave-control :target="TARGETS[key]" :id="key" v-on:wave-changed="updateWave"  class="wave" inline-template>
 						<div>
 							<div>
 								<h2><b>{{ target }}</b> : {{ val.toFixed(4) }}</h2>
@@ -72,88 +72,29 @@
 							</div>
 							<!-- ============= -->
 
-							<br>
-
 						</div>
-					</robot>
-				</div> <!-- // For each robot -->
+					</wave-control>
+				</div> <!-- // For each wave -->
 
 				<div class="col-md-12">
 					<button v-on:click="update" type="button" :class="btn.class" class="btn btn-sm btn-block">{{ btn.text }}</button>
 				</div>
+				<br><br>
 
 				<div class="col-md-12">
-					<canvas class="canvas">
-
-					</canvas>
+					<canvas id="myCanvas" width=1110 height=500 class="canvas"></canvas>
 				</div>
 
 			</div>
 
 		</div>
 
+		<script src="Artist.js"></script>
+		<script src="Wave.js"></script>
+		<script src="waveControl.js"></script>
+
 		<script>
 			
-			class Wave {
-				constructor(id, wave="SineWave"){
-					console.log("New wave", id);
-
-                    this.id = id;
-                    this.wave = wave;
-                    this.frequency = 1;
-                    this.amplitude = 1;
-                    this.offset = 0;
-
-                    this.val = 0;
-				}
-
-				setVal(val){
-				    this.val = val;
-				}
-
-				getVal(){
-				    return this.val
-				}
-
-				getSettings(){
-				    return {
-				        id: this.id,
-						wave: this.wave,
-						frequency: this.frequency,
-						amplitude: this.amplitude,
-						offset: this.offset
-					}
-				}
-			}
-
-            Vue.component('robot', {
-                props : ['id', 'target'],
-                data(){
-                    return {
-						wave : waves[this.id]
-                    }
-                },
-                computed : {
-					val : function(){
-                        return this.wave.getVal();
-					}
-                },
-				methods : {
-                    waveChanged : function(){
-                        let wave = {
-                        	frequency : this.wave.frequency
-						}
-
-						this.$emit('wave-changed', this.wave.getSettings());
-					}
-				},
-                mounted : function(){
-                    console.log("Wave", this.id, "mounted!", this.robot)
-                }
-            });
-
-			// ===================
-
 			const WIDTH = 3;
 			const HEIGHT= 1;
 			const TARGETS = ['x_vel', 'y_vel', 'w']
@@ -161,9 +102,8 @@
 			let waves = []
 			for(let y = 0; y < HEIGHT; y++){
 				for(let x = 0; x < WIDTH; x++){
-					let id = y * WIDTH + x
-					let wave = new Wave(id)
-					waves[id] = wave
+					let id = y * WIDTH + x;
+					waves[id] = new Wave(id);
 				}
 			}
 
@@ -215,18 +155,13 @@
 					},
 
                     updateWave : function(settings){
-					    console.log("Updating wave", settings);
 						socket.emit('settings', settings);
-
 					},
 
                     update : function(){
-				        console.log('Update')
 						socket.emit('control', {
 							running : !this.running
 						})
-
-//						socket.emit('settings', settings)
 					}
 				},
 
@@ -234,6 +169,13 @@
 					console.log("App mounted")
 				}
 			})
+
+
+			let sLen = 20;
+			let series = [];
+			for(let i = 0; i < sLen; i++){
+			    series.push(0)
+			}
 
 
 
@@ -250,9 +192,16 @@
                 app.setConnection(true);
                 app.updateHz();
                 _.each(data, (val, id) => {
+                    if(id == 0){
+                        series.shift();
+						series.push(val);
+					}
+
                     if(waves[id])
                         waves[id].setVal(val);
                 })
+
+				artist.drawSeries(series)
             });
 
             socket.on('status', status => {
@@ -272,6 +221,7 @@
                 })
             });
 
+            const artist = new Artist()
 
 		</script>
 

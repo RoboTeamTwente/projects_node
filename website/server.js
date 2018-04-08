@@ -24,7 +24,7 @@ function waveCallback(values){
 	io.sockets.emit('tick', values)
 }
 
-const waveManager = new Wave.WaveManager(waveCallback, 20);
+const waveManager = new Wave.WaveManager(waveCallback, 10);
 waveManager.addWave(wave1);
 waveManager.addWave(wave2);
 waveManager.addWave(wave3);
