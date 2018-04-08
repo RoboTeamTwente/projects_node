@@ -21,7 +21,9 @@
 
 			<div class="row">
 				<div v-for="(wave, key) in waves" class="wer col-md-4">
-					<wave-control :target="TARGETS[key]" :id="key" v-on:wave-changed="updateWave"  class="wave" inline-template>
+					<wave-control :target="TARGETS[key]" :id="key" v-on:wave-changed="updateWave"  class="wave" inline-template
+						:class="{red : key==0, green : key==1, blue : key==2}"
+					>
 						<div>
 							<div>
 								<h2><b>{{ target }}</b> : {{ val.toFixed(4) }}</h2>
@@ -59,15 +61,15 @@
 									<label class="input-group-text" for="waveSelector">Wave</label>
 								</div>
 								<select v-model="wave.wave" class="custom-select" id="waveSelector" @change="waveChanged" :disabled="running || !connected">
-									<option value="None">		None</option>
+									<option value="Constant"> Constant </option>
 									<option value="SineWave"> SineWave </option>
 									<option value="CosineWave"> CosineWave </option>
 									<option value="BlockWave"> BlockWave </option>
 									<option value="SawWave"> SawWave </option>
-									<option value="SineWaveInverted"> SineWaveInverted</option>
-									<option value="CosineWaveInverted"> CosineWaveInverted</option>
-									<option value="BlockWaveInverted"> BlockWaveInverted</option>
-									<option value="SawWaveInverted"> SawWaveInverted</option>
+									<option value="SineWaveInverted"> SineWaveInverted </option>
+									<option value="CosineWaveInverted"> CosineWaveInverted </option>
+									<option value="BlockWaveInverted"> BlockWaveInverted </option>
+									<option value="SawWaveInverted"> SawWaveInverted </option>
 								</select>
 							</div>
 							<!-- ============= -->
@@ -75,12 +77,24 @@
 						</div>
 					</wave-control>
 				</div> <!-- // For each wave -->
+			</div>
 
-				<div class="col-md-12">
+			<div class="row" style="margin-top : 10px;">
+				<div class="col-md-4">
+					<div class="input-group input-group-sm mb-12">
+						<div class="input-group-prepend">
+							<span class="input-group-text" id="inputGroup-sizing-sm">Robot ID</span>
+						</div>
+						<input v-model="robot_id" @change="robotChanged" type="text" class="form-control" :disabled="running || !connected">
+					</div>
+				</div>
+
+				<div class="col-md-8">
 					<button v-on:click="update" type="button" :class="btn.class" class="btn btn-sm btn-block">{{ btn.text }}</button>
 				</div>
-				<br><br>
+			</div>
 
+			<div class="row" style="margin-top : 10px;">
 				<div class="col-md-12">
 					<canvas id="myCanvas" width=1110 height=500 class="canvas"></canvas>
 				</div>
@@ -97,13 +111,21 @@
 			
 			const WIDTH = 3;
 			const HEIGHT= 1;
-			const TARGETS = ['x_vel', 'y_vel', 'w']
+			const TARGETS = ['x_vel', 'y_vel', 'w'];
+			const RESOLUTION = 200;
 
-			let waves = []
+			let waves = [];
+			let series = [];
 			for(let y = 0; y < HEIGHT; y++){
 				for(let x = 0; x < WIDTH; x++){
 					let id = y * WIDTH + x;
 					waves[id] = new Wave(id);
+
+					series[id] = [];
+					for(let i = 0; i < RESOLUTION; i++){
+					    series[id].push(0);
+					}
+
 				}
 			}
 
@@ -119,7 +141,9 @@
 					lastReceived : Date.now(),
 					connected : false,
 					running : false,
-					Hz : 0
+					Hz : 0,
+
+					robot_id : 0
 				},
 
 				methods : {
@@ -158,6 +182,11 @@
 						socket.emit('settings', settings);
 					},
 
+					robotChanged : function(){
+						console.log("Robot ID changed to " + this.robot_id)
+                        socket.emit('robot_id', this.robot_id);
+					},
+
                     update : function(){
 						socket.emit('control', {
 							running : !this.running
@@ -168,51 +197,50 @@
 				mounted : function(){
 					console.log("App mounted")
 				}
-			})
-
-
-			let sLen = 20;
-			let series = [];
-			for(let i = 0; i < sLen; i++){
-			    series.push(0)
-			}
-
+			});
 
 
             let socket = io('http://localhost:3001');
 
 			socket.on('connect', () => {
 				app.setConnection(true);
-			})
+			});
 			socket.on('disconnect', () => {
 			    app.setConnection(false);
-			})
+			});
 
             socket.on('tick', data => {
                 app.setConnection(true);
                 app.updateHz();
+
+                artist.clear();
+                artist.drawGrid();
+
+                let colours = ["red", "green", "blue"];
+
                 _.each(data, (val, id) => {
-                    if(id == 0){
-                        series.shift();
-						series.push(val);
-					}
 
-                    if(waves[id])
+                    if(waves[id]) {
                         waves[id].setVal(val);
-                })
+                        series[id].shift();
+                        series[id].push(val);
+                    }
 
-				artist.drawSeries(series)
+					artist.drawSeries(series[id], colours[id])
+
+                });
+
             });
 
             socket.on('status', status => {
-                console.log("Status received:", status)
+                console.log("Status received:", status);
                 app.updateStatus(status);
 			})
 
             socket.on('settings', settings => {
-                console.log(settings)
+                console.log(settings);
                 _.each(settings, setting => {
-                    let wave = waves[setting.id]
+                    let wave = waves[setting.id];
                     if(wave) {
                         _.each(setting, (val, key) => {
                             wave[key] = val
@@ -220,6 +248,11 @@
                     }
                 })
             });
+
+            socket.on('robot_id', robot_id => {
+                console.log("Robot ID changed", robot_id);
+				app.robot_id = robot_id;
+			});
 
             const artist = new Artist()
 

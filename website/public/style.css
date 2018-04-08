@@ -8,7 +8,17 @@
 }
 
 .canvas {
-	background-color: #333;
+	background-color: #fff;
 	width: 1110px;
 	height: 500px;
+}
+
+.red {
+	border-bottom: 3px solid red;
+}
+.green {
+	border-bottom: 3px solid green;
+}
+.blue {
+	border-bottom: 3px solid blue;
 }

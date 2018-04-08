@@ -18,8 +18,5 @@ Vue.component('waveControl', {
 
             this.$emit('wave-changed', this.wave.getSettings());
         }
-    },
-    mounted : function(){
-        console.log("Wave", this.id, "mounted!", this.robot)
     }
 });

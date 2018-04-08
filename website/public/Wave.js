@@ -1,6 +1,5 @@
 class Wave {
     constructor(id, wave="SineWave"){
-        console.log("New wave", id);
 
         this.id = id;
         this.wave = wave;

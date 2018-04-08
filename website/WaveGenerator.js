@@ -58,7 +58,7 @@ class WaveManager {
 }
 
 class Wave {
-    constructor(id, waveName="None", frequency=1000, amplitude=1, offset=0){
+    constructor(id, waveName="Constant", frequency=1000, amplitude=1, offset=0){
         console.log("New Wave", {id, wave : waveName, frequency, amplitude, offset});
 
         this.id = id;
@@ -97,10 +97,10 @@ class Wave {
     }
 }
 
-let None = x => 0;
+let Constant = x => 0;
 
 let SineWave   = x => Math.sin(x * 2 * Math.PI);
-let CosineWave = x => Math.sin(x * 2 * Math.PI);
+let CosineWave = x => Math.cos(x * 2 * Math.PI);
 let BlockWave  = x => x < 0.5 ? 0 : 1;
 let SawWave    = x => x;
 
@@ -110,7 +110,7 @@ let BlockWaveInverted  = x => 1 - BlockWave(x);
 let SawWaveInverted    = x => 1 - SawWave(x);
 
 let nameToWave = {
-    "None"               : None,
+    "Constant"           : Constant,
     "SineWave"           : SineWave,
     "CosineWave"         : CosineWave,
     "BlockWave"          : BlockWave,
@@ -125,7 +125,7 @@ module.exports = {
     WaveManager,
     Wave,
     Waves : {
-        None : "None",
+        Constant : "Constant",
         SineWave: "SineWave",
         CosineWave: "CosineWave",
         BlockWave: "BlockWave",
