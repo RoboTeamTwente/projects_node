@@ -26,7 +26,7 @@ ros.initNode('/jsNode').then(_rosNode => {
 
 let NCLIENTS = 0;
 let ROBOT_ID = 0;
-
+let KICK = false;
 
 
 let Wave = require('./WaveGenerator.js');
@@ -49,6 +49,15 @@ function waveCallback(values){
         robotCommand.x_vel = values[0];
         robotCommand.y_vel = values[1];
         robotCommand.w = values[2];
+
+        if(KICK){
+            robotCommand.kicker = true;
+            robotCommand.kicker_vel = 3;
+        }else{
+            robotCommand.kicker = false;
+            robotCommand.kicker_vel = 0;
+        }
+        KICK = false;
 
         pub.publish(robotCommand);
     }
@@ -104,6 +113,11 @@ io.on('connection', function(socket){
 
         updateClients();
 	})
+
+    socket.on('kick', function(){
+        console.log("Kick command received!")
+        KICK = true;
+    })
 
     socket.on('disconnect', function(){
         l("Client disconnected");

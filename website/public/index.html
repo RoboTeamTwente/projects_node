@@ -89,8 +89,12 @@
 					</div>
 				</div>
 
-				<div class="col-md-8">
+				<div class="col-md-6">
 					<button v-on:click="update" type="button" :class="btn.class" class="btn btn-sm btn-block" :disabled="!connected || !ros_running">{{ btn.text }}</button>
+				</div>
+
+				<div class="col-md-2">
+					<button v-on:click="kick" type="button" class="btn btn-sm btn-block btn-danger" :disabled="!connected || !ros_running"> Kick! </button>
 				</div>
 			</div>
 
@@ -196,6 +200,11 @@
 						socket.emit('control', {
 							running : !this.running
 						})
+					},
+
+					kick : function(){
+                        console.log("Kick received!")
+						socket.emit('kick');
 					}
 				},
 
