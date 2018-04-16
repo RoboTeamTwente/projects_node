@@ -1,182 +1,193 @@
-l = console.log;
+let l = console.log;
 
 const SERVER_PORT = 3000;
 const IO_PORT = 3001;
-let ROS_RUNNING = false;
 
 let io      = require('socket.io')();
 let express = require('express');
 let path    = require('path');
 let _       = require('lodash');
-let ros     = require('rosnodejs');
 
+
+// ==== ROS ==== //
+let ros     = require('rosnodejs');
 let msgs_list = ros.getAvailableMessagePackages();
 let roboteam_msgs = require(msgs_list.roboteam_msgs);
 let robotCommand = new roboteam_msgs.msg.RobotCommand();
 let pub = null;
 let rosNode = null;
 ros.initNode('/jsNode').then(_rosNode => {
-    rosNode = _rosNode;
-    pub = rosNode.advertise('/robotcommands', roboteam_msgs.msg.RobotCommand);
-    ROS_RUNNING = true;
     l("ROS initialized");
 
-    updateClients();
-});
+    rosNode = _rosNode;
+    pub = rosNode.advertise('/robotcommands', roboteam_msgs.msg.RobotCommand);
+    STATE.ros = true;
+    updateState();
 
-let STATE = {}
+});
+// ============= //
+
+
+let STATE = {};
 
 let NCLIENTS = 0;
-let ROBOT_ID = 0;
 let KICK = false;
+let CHIP = false;
 
 let Wave = require('./WaveGenerator.js');
-const waveManager = new Wave.WaveManager(waveCallback, 10);
+const waveManager = new Wave.WaveManager(waveCallback, 50);
 
 function waveCallback(values){
 	io.sockets.emit('tick', values);
 
-	if(ROS_RUNNING) {
-        robotCommand.id = ROBOT_ID;
-        robotCommand.x_vel = values[0];
-        robotCommand.y_vel = values[1];
+	if(STATE.ros) {
+        robotCommand.id = STATE.robot_id;
+
+        // X and Y velocity
+        if(STATE.mode === "cartesian"){
+            robotCommand.x_vel = values[0];
+            robotCommand.y_vel = values[1];
+        }else
+        if(STATE.mode === "polar"){
+            let rho = values[0];
+            let theta = values[1];
+
+            let x = rho * Math.cos(theta);
+            let y = rho * Math.sin(theta);
+
+            robotCommand.x_vel = x;
+            robotCommand.y_vel = y;
+        }
+        // Rotational velocity
         robotCommand.w = values[2];
 
-        if(KICK){
-            robotCommand.kicker = true;
-            robotCommand.kicker_vel = 3;
-        }else{
-            robotCommand.kicker = false;
-            robotCommand.kicker_vel = 0;
-        }
+        robotCommand.kicker = KICK;
+        robotCommand.kicker_vel = KICK * 3;
         KICK = false;
+
+        robotCommand.chipper = CHIP;
+        robotCommand.chipper_vel = CHIP * 3;
+        CHIP = false;
 
         pub.publish(robotCommand);
     }
 }
 
 function initializeState(){
-    let state = {
-        robot_id : 0,
-        ros : false,
-        waveManager : {
-            running : false,
-            waves : [
-            ]
-        }
-    };
+    l("[State] Initializing new state")
+
+    // add three new waves
+    waveManager.removeWaves();
     for(let i = 0; i < 3; i++){
-        state.waveManager.waves.push({
+        waveManager.addWave({
             id : i,
-            waveName : Wave.Waves.Constant,
+            wave : Wave.Waves.Constant,
             frequency : 1000,
             amplitude : 1,
             offset : 0
         })
     }
+
+    let state = {
+        robot_id : 0,
+        ros : false,
+        waveManager : waveManager.getState(),
+        mode : "cartesian"
+    };
+
+    // l(JSON.stringify(state, null, 4))
+
     return state;
 }
 
-// waveManager.addWave(wave1);
-// waveManager.addWave(wave2);
-// waveManager.addWave(wave3);
+function updateState(){
+    handleNewState(STATE);
+}
 
-/* settings :
-*   3 waves : waveManager.getWaveSettings()
-*   waveManager : running?
-*   robot_id
-*   ros_running
-*   mode : cartesian / polar
-*
-*
-* */
-
-
-function updateClients(){
+function sendState(socket){
+    l("[Socket] Emitting state to client");
+    socket.emit('state', STATE);
+}
+function broadcastState(){
+    l("[Socket] Broadcasting state to all clients");
     io.sockets.emit('state', STATE);
 }
 
 function handleNewState(state){
-    l("Handling new state")
 
-    if(state.waveManager.running) waveManager.start()
-    else waveManager.stop()
+    l("\n[State] Handling new state");
 
-    STATE = state
+    let findDifferences = (o1, o2, keys=[]) => {
+        _.each(o1, (v, k) => {
+            if(typeof v === "object"){
+                findDifferences(o1[k], o2[k], [...keys, k]);
+            } else {
+                if(o1[k] !== o2[k]){
+                    l(`[State] ${[...keys, k].join(".")} : ${o1[k]} -> ${o2[k]}`);
+                }
+            }
+        })
+    };
+    findDifferences(STATE, state);
 
-    waveManager.removeWaves();
-    _.each(state['waveManager'].waves, (wave, i) => waveManager.addWave(wave, i))    
-    io.sockets.emit('state', STATE);   
+    if(STATE.waveManager) {
+        // Start / stop waveManager
+        if (state.waveManager.running) waveManager.start();
+        else waveManager.stop();
 
+        // Check if waves have changed
+        if (!isEqual(STATE.waveManager.waves, state.waveManager.waves)) {
+            // Remove current waves
+            waveManager.removeWaves();
+
+            // Initialize new waves
+            _.each(state["waveManager"]["waves"], (wave, i) => waveManager.addWave(wave, i));
+        }
+    }
+
+
+    // Store new state
+    STATE = state;
+
+    // Broadcast new state to all clients
+    broadcastState();
 }
 
-
+// ==== SOCKET HANDLERS ==== //
 io.on('connection', function(socket){
-    l("Client connected");
+    l("\n\nClient connected");
     NCLIENTS++;
 
-    updateClients();
-    // return
-
-    // socket.emit('status', waveManager.getStatus());
-    // socket.emit('settings', waveManager.getWavesSettings());
-    // socket.emit('robot_id', ROBOT_ID);
-    // socket.emit('ros_running', ROS_RUNNING);
+    // Send state to socket
+    sendState(socket);
 
     // Received wave settings
     socket.on('state', function(state){
-        l('New state received!')
-        l(JSON.stringify(state, null, 4))
-
+        l('[Socket] New state received!');
+        // l(JSON.stringify(state, null, 4));
         handleNewState(state);
-
-		// let wave = new Wave.Wave(
-		// 	parseInt(settings.id),
-  //           settings.wave,
-  //           parseInt(settings.frequency),
-  //           parseFloat(settings.amplitude),
-  //           parseFloat(settings.offset)
-		// );
-  //       waveManager.addWave(wave, parseInt(settings.id));
-
-		// updateClients()
     });
-
-    socket.on('robot_id', function(robot_id){
-        ROBOT_ID = robot_id;
-
-        updateClients();
-    });
-
-	// Received control messages
-	socket.on('control', function(control){
-		if(control.running) waveManager.start();
-		else			    waveManager.stop();
-
-        updateClients();
-	})
 
     socket.on('kick', function(){
-        console.log("Kick command received!")
+        console.log("[Socket] Kick command received!");
         KICK = true;
-    })
+    });
+    socket.on('chip', function(){
+        console.log("[Socket] Chip command received!");
+        CHIP = true;
+    });
 
     socket.on('disconnect', function(){
-        l("Client disconnected");
+        l("[Socket] Client disconnected");
         NCLIENTS--;
-
         if(!NCLIENTS){
+            l("[Socket] No more clients, stopping waveManager");
             waveManager.stop();
         }
     });
-
 });
 
-STATE = initializeState();
-l("\n")
-l(JSON.stringify(STATE, null, 4))
-l("\n")
-handleNewState(STATE)
+handleNewState(initializeState());
 
 // ==== SERVER STUFF ==== //
 
@@ -186,7 +197,11 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 server.listen(SERVER_PORT, () => {
     l("Server listening at", SERVER_PORT);
-
     io.listen(3001);
     l("IO listening at", IO_PORT);
 });
+
+// ==== Helper functions ==== //
+function isEqual(obj1, obj2){
+    return JSON.stringify(obj1) === JSON.stringify(obj2)
+}

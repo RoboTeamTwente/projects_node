@@ -10,8 +10,6 @@ class WaveManager {
         this.iTick = 0;
 
         setInterval(() => this.tick(), 1000/Hz)
-
-        this.last = Date.now()
     }
 
     stop(){
@@ -25,6 +23,7 @@ class WaveManager {
     }
 
     getState(){
+        console.log("[WaveManager] Returning state");
         return {
             running : this.running,
             waves : this.getWavesSettings()
@@ -32,7 +31,7 @@ class WaveManager {
     }
 
     addWave(waveSettings, i=this.waves.length){
-        console.log("[WaveManager] Adding wave");
+        console.log("[WaveManager] Adding wave : " + waveSettings.wave);
         this.waves[i] = new Wave(waveSettings);
         this.waves[i].setHz(this.Hz)
     }
@@ -52,32 +51,28 @@ class WaveManager {
             return;
 
         this.iTick++;
+
         this.cb(_.map(this.waves, wave => wave.tick(this.iTick)));
 
-        let now = Date.now()
-        // l("Duration : " + (now - this.last))
-        this.last = now
     }
 
 }
 
 class Wave {
     constructor({
-        waveName = "Constant",
+        wave = "Constant",
         frequency = 1000, 
         amplitude = 1, 
         offset = 0})
     {
-        
-        console.log("[Wave] New Wave", {wave : waveName, frequency, amplitude, offset});
 
-        this.waveName = waveName;
-        this.wave = nameToWave[waveName];
-        this.frequency = frequency;
-        this.amplitude = amplitude;
-        this.offset = offset;
+        this.wave = wave;
+        this._wave = nameToWave[wave];
+        this.frequency = parseFloat(frequency);
+        this.amplitude = parseFloat(amplitude);
+        this.offset = parseFloat(offset);
 
-        this.setHz(this.frequency);
+        this.setHz(parseFloat(this.frequency));
 
         this.nTicks = 0;
     }
@@ -90,15 +85,18 @@ class Wave {
 
         let period = (t % this.Hz) / this.Hz;
 
+        if(this.wave == "SawWave")
+            console.log(period, this.offset);
+
         this.nTicks++;
 
-        return this.wave(period) * this.amplitude + this.offset;
+        return this._wave(period) * this.amplitude + this.offset;
     }
 
     getSettings(){
         return {
             id : this.id,
-            wave : this.waveName,
+            wave : this.wave,
             frequency : this.frequency,
             amplitude : this.amplitude,
             offset : this.offset
