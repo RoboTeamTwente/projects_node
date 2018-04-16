@@ -62,7 +62,8 @@ function waveCallback(values){
         robotCommand.w = values[2];
 
         robotCommand.kicker = KICK;
-        robotCommand.kicker_vel = KICK * 3;
+        robotCommand.kicker_vel = 3 * KICK;
+
         KICK = false;
 
         robotCommand.chipper = CHIP;
