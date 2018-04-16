@@ -50,13 +50,9 @@ function waveCallback(values){
         robotCommand.y_vel = values[1];
         robotCommand.w = values[2];
 
-        if(KICK){
-            robotCommand.kicker = true;
-            robotCommand.kicker_vel = 3;
-        }else{
-            robotCommand.kicker = false;
-            robotCommand.kicker_vel = 0;
-        }
+        robotCommand.kicker = KICK;
+        robotCommand.kicker_vel = 3 * KICK;
+
         KICK = false;
 
         pub.publish(robotCommand);
@@ -115,7 +111,6 @@ io.on('connection', function(socket){
 	})
 
     socket.on('kick', function(){
-        console.log("Kick command received!")
         KICK = true;
     })
 
