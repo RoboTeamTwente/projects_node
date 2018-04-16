@@ -23,20 +23,24 @@ class WaveManager {
         this.iTick = 0;
         this.running = true;
     }
-    continue(){
-        console.log("[WaveManager] Continuing WaveManager");
-        this.running = true;
-    }
 
-    getStatus(){
+    getState(){
         return {
-            running : this.running
+            running : this.running,
+            waves : this.getWavesSettings()
         }
     }
 
-    addWave(wave, i=this.waves.length){
-        this.waves[i] = wave;
-        wave.setHz(this.Hz)
+    addWave(waveSettings, i=this.waves.length){
+        console.log("[WaveManager] Adding wave");
+        this.waves[i] = new Wave(waveSettings);
+        this.waves[i].setHz(this.Hz)
+    }
+
+    removeWaves(){
+        console.log("[WaveManager] Removing waves");
+        this.stop();
+        this.waves = []
     }
 
     getWavesSettings(){
@@ -58,10 +62,15 @@ class WaveManager {
 }
 
 class Wave {
-    constructor(id, waveName="Constant", frequency=1000, amplitude=1, offset=0){
-        console.log("New Wave", {id, wave : waveName, frequency, amplitude, offset});
+    constructor({
+        waveName = "Constant",
+        frequency = 1000, 
+        amplitude = 1, 
+        offset = 0})
+    {
+        
+        console.log("[Wave] New Wave", {wave : waveName, frequency, amplitude, offset});
 
-        this.id = id;
         this.waveName = waveName;
         this.wave = nameToWave[waveName];
         this.frequency = frequency;

@@ -4,25 +4,25 @@
 		<meta charset="utf-8">
 		<title>RobotCommand GUI</title>
 
-		<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css">
+		<link rel="stylesheet" href="libs/bootstrap.min.css">
 		<link rel="stylesheet" href="style.css">
 
 
-		<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.1.0/socket.io.slim.js"></script>
-		<script src="https://cdn.jsdelivr.net/npm/vue"></script>
-		<script src="https://cdnjs.cloudflare.com/ajax/libs/lodash.js/4.17.5/lodash.min.js"></script>
+		<script src="libs/socket.io.slim.js"></script>
+		<script src="libs/vue"></script>
+		<script src="libs/lodash.min.js"></script>
 
 	</head>
 	<body>
 		
 		<div id="app" class="container">
 
-			{{ Hz.toFixed(1) }}
+			{{ Hz.toFixed(1) }} - {{ disabled }}
 
 			<div class="row">
 				<div v-for="(wave, key) in waves" class="wer col-md-4">
 					<wave-control :target="TARGETS[key]" :id="key" v-on:wave-changed="updateWave"  class="wave" inline-template
-						:class="{red : key==0, green : key==1, blue : key==2}"
+						:class="COLOURS[key]"
 					>
 						<div>
 							<div>
@@ -36,20 +36,20 @@
 									<div class="input-group-prepend">
 										<span class="input-group-text" id="inputGroup-sizing-sm">Frequency</span>
 									</div>
-									<input v-model="wave.frequency" @change="waveChanged" type="text" class="form-control" :disabled="running || !connected || !ros_running">
+									<input v-model="wave.frequency" @change="settingsChanged" type="text" class="form-control" :disabled="disabled">
 								</div>
 								<div class="input-group input-group-sm mb-12">
 									<div class="input-group-prepend">
 										<span class="input-group-text" id="inputGroup-sizing-sm">Amplitude</span>
 									</div>
-									<input v-model="wave.amplitude" @change="waveChanged" type="text" class="form-control" :disabled="running || !connected || !ros_running">
+									<input v-model="wave.amplitude" @change="settingsChanged" type="text" class="form-control" :disabled="disabled">
 								</div>
 
 								<div class="input-group input-group-sm mb-12">
 									<div class="input-group-prepend">
 										<span class="input-group-text" id="inputGroup-sizing-sm">Offset</span>
 									</div>
-									<input v-model="wave.offset" @change="waveChanged" type="text" class="form-control" :disabled="running || !connected || !ros_running">
+									<input v-model="wave.offset" @change="settingsChanged" type="text" class="form-control" :disabled="disabled">
 								</div>
 
 							</div>
@@ -60,16 +60,16 @@
 								<div class="input-group-prepend">
 									<label class="input-group-text" for="waveSelector">Wave</label>
 								</div>
-								<select v-model="wave.wave" class="custom-select" id="waveSelector" @change="waveChanged" :disabled="running || !connected || !ros_running">
+								<select v-model="wave.wave" class="custom-select" id="waveSelector" @change="waveChanged" :disabled="disabled">
 									<option value="Constant"> Constant </option>
-									<option value="SineWave"> SineWave </option>
-									<option value="CosineWave"> CosineWave </option>
-									<option value="BlockWave"> BlockWave </option>
-									<option value="SawWave"> SawWave </option>
-									<option value="SineWaveInverted"> SineWaveInverted </option>
-									<option value="CosineWaveInverted"> CosineWaveInverted </option>
-									<option value="BlockWaveInverted"> BlockWaveInverted </option>
-									<option value="SawWaveInverted"> SawWaveInverted </option>
+									<option value="SineWave"> Sine </option>
+									<option value="CosineWave"> Cosine  </option>
+									<option value="BlockWave"> Block </option>
+									<option value="SawWave"> Saw </option>
+									<option value="SineWaveInverted"> Sine Inverted </option>
+									<option value="CosineWaveInverted"> Cosine Inverted </option>
+									<option value="BlockWaveInverted"> Block Inverted </option>
+									<option value="SawWaveInverted"> Saw Inverted </option>
 								</select>
 							</div>
 							<!-- ============= -->
@@ -85,25 +85,31 @@
 						<div class="input-group-prepend">
 							<span class="input-group-text" id="inputGroup-sizing-sm">Robot ID</span>
 						</div>
-						<input v-model="robot_id" @change="robotChanged" type="text" class="form-control" :disabled="running || !connected || !ros_running">
+						<input v-model="settings.robot_id" @change="settingsChanged" type="text" class="form-control" :disabled="disabled">
 					</div>
 				</div>
 
 				<div class="col-md-6">
-					<button v-on:click="update" type="button" :class="btn.class" class="btn btn-sm btn-block" :disabled="!connected || !ros_running">{{ btn.text }}</button>
+					<button v-on:click="toggleRunning" type="button" :class="btn.class" class="btn btn-sm btn-block" :disabled="!connected || !settings.ros_running">{{ btn.text }}</button>
 				</div>
 
 				<div class="col-md-2">
-					<button v-on:click="kick" type="button" class="btn btn-sm btn-block btn-danger" :disabled="!connected || !ros_running"> Kick! </button>
+					<button v-on:click="kick" type="button" class="btn btn-sm btn-block btn-danger" :disabled="!connected || !settings.ros_running || !settings.running"> Kick! </button>
 				</div>
 			</div>
 
-			<div class="row" style="margin-top : 10px;">
-				<div class="col-md-12">
-					<canvas id="myCanvas" width=1110 height=500 class="canvas"></canvas>
-				</div>
+			<br>
 
+			<!-- === CANVAS === -->
+			<div class="row" >
+				<div class="col-md-6">
+					<canvas id="myCanvas" width=555 height=500 class="canvas"></canvas>
+				</div>
+				<div class="col-md-6">
+					<canvas id="canvasCoordinates" width=555 height=500 class="canvas"></canvas>
+				</div>
 			</div>
+			<!-- === CANVAS === -->
 
 		</div>
 
@@ -116,6 +122,7 @@
 			const WIDTH = 3;
 			const HEIGHT= 1;
 			const TARGETS = ['x_vel', 'y_vel', 'w'];
+            const COLOURS = ['red', 'green', 'blue'];
 			const RESOLUTION = 200;
 
 			let waves = [];
@@ -137,18 +144,27 @@
 				el: '#app',
 				data: { 
 
+					lastReceived : Date.now(),
+					connected : false,
+					Hz : 0,
+
+					settings : {
+						robot_id : 0,
+						running : false,
+						ros_running : false,
+						waveManager : {
+							running : false,
+						}
+					},
+
                     btn : {
 					    text : "",
 						class : ""
                     },
+				},
 
-					lastReceived : Date.now(),
-					connected : false,
-					running : false,
-                    ros_running : false,
-					Hz : 0,
-
-					robot_id : 0
+				computed : {
+					disabled : function(){ return this.settings.waveManager.running || !this.connected || !this.settings.ros }
 				},
 
 				methods : {
@@ -158,8 +174,20 @@
 						this.lastReceived = now;
 					},
 
+					toggleRunning : function(){
+						console.log("Toggling running!")
+						this.settings.waveManager.running = !this.settings.waveManager.running
+						this.settingsChanged()
+					},
+
+					settingsChanged : function(){
+						console.log("Settings changed!")
+						socket.emit("settings", this.settings)
+						console.log("Settings emitted")
+					},
+
                     updateStatus : function(status){
-				        this.running = status.running;
+				        this.settings.waveManager.running = status.settings.waveManager.running;
 				        this.updateButton();
 					},
 
@@ -170,11 +198,11 @@
 
 					updateButton : function(){
                         if(this.connected) {
-                            if(!this.ros_running){
+                            if(!this.settings.ros_running){
                                 this.btn.class = "btn-secondary";
                                 this.btn.text = "Waiting for ros to run..";
 							}else
-                            if(this.running) {
+                            if(this.settings.waveManager.running) {
                                 this.btn.class = "btn-danger";
                                 this.btn.text = "Stop";
                             }else{
@@ -189,17 +217,6 @@
 
                     updateWave : function(settings){
 						socket.emit('settings', settings);
-					},
-
-					robotChanged : function(){
-						console.log("Robot ID changed to " + this.robot_id)
-                        socket.emit('robot_id', this.robot_id);
-					},
-
-                    update : function(){
-						socket.emit('control', {
-							running : !this.running
-						})
 					},
 
 					kick : function(){
@@ -231,8 +248,6 @@
                 artist.clear();
                 artist.drawGrid();
 
-                let colours = ["red", "green", "blue"];
-
                 _.each(data, (val, id) => {
 
                     if(waves[id]) {
@@ -241,7 +256,7 @@
                         series[id].push(val);
                     }
 
-					artist.drawSeries(series[id], colours[id])
+					artist.drawSeries(series[id], COLOURS[id])
 
                 });
 
@@ -253,26 +268,26 @@
 			})
 
             socket.on('settings', settings => {
-                console.log(settings);
-                _.each(settings, setting => {
-                    let wave = waves[setting.id];
-                    if(wave) {
-                        _.each(setting, (val, key) => {
-                            wave[key] = val
-                        });
-                    }
-                })
+				console.log(settings);
+
+				_.each(settings, (val, setting) => {
+					console.log(setting, val)
+
+					if(setting == "waves"){
+						let wave = waves[setting.id];
+						if(wave) {
+							_.each(setting, (val, key) => {
+								wave[key] = val
+							})
+						}
+					}else{
+						app.settings[setting] = val
+					}
+				})
+				let f = (s,x) => _.map(x,(v,k)=> typeof v == "object" ? f(`${s}.${k}`,v) : `${s}.${k}=${v}`).join("\n")
+				console.log(f("app.settings", app.settings))
+				app.updateButton()
             });
-
-            socket.on('robot_id', robot_id => {
-                console.log("Robot ID changed", robot_id);
-				app.robot_id = robot_id;
-			});
-
-            socket.on('ros_running', ros_running => {
-                app.ros_running = ros_running;
-                app.updateButton();
-            })
 
             const artist = new Artist()
 

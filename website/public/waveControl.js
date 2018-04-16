@@ -2,7 +2,7 @@ Vue.component('waveControl', {
     props : ['id', 'target'],
     data(){
         return {
-            wave : waves[this.id]
+            wave : waves[this.id],
         }
     },
     computed : {
