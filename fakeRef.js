@@ -26,7 +26,7 @@ class FakeRef {
         
     }
 
-    send(cmd){
+    send(cmd, args){
         if(cmd < 0 || 17 < cmd){
             l("[FakeRef] cmd out of range! : " + cmd);
             this.list();
@@ -34,8 +34,14 @@ class FakeRef {
         }
 
         this.m.command.command = cmd;
+
+        if(cmd == stringToCmd['BALL_PLACEMENT_YELLOW'] || cmd == stringToCmd['BALL_PLACEMENT_BLUE']){
+            this.m.designated_position.x = parseFloat(args[0]);
+            this.m.designated_position.y = parseFloat(args[1]);
+        }
+
         this.pub.publish(this.m);
-        l("[FakeRef] Published cmd " + cmd + " => " + cmdToString[cmd]);
+        l("[FakeRef] Published cmd " + cmd + " => " + cmdToString[cmd] + (args.length ? " : " + args.join(', ') : ''));
     }
 
     list(){
@@ -50,15 +56,16 @@ const fakeRef = new FakeRef();
 var stdin = process.openStdin();
 stdin.addListener("data", function(d) {
     try{
-
-        let cmd = parseInt(d.toString().trim())
+        let inputs = d.toString().slice(0, -1).replace(/ +/, ' ').split(' ')
+        
+        let cmd = parseInt(inputs[0]);
         
         fakeRef.list();
         l();
         if(isNaN(cmd))
             l(d.toString().trim() + " is not a valid number")
         else
-            fakeRef.send(cmd);
+            fakeRef.send(cmd, inputs.slice(1));
         
 
     }catch(e){
