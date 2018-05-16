@@ -33,6 +33,8 @@ setInterval(function(){
 ros.initNode('/jsNode')
 .then(driveForward)
 
+const ids = [2, 10];
+
 function driveForward(rosNode){
     let l = (...args) => console.log("[driveForward]", ...args)
     l("init")
@@ -45,12 +47,15 @@ function driveForward(rosNode){
     robotCommand.y_vel = 0.0;
 
     setInterval(function(){
-        if(isNaN(ID))
-            return
+        // if(isNaN(ID)) return
 
-        robotCommand.id = ID
+
+        robotCommand.id = ids[nPublished % ids.length];
+        // robotCommand.id = 10
+
+
         pub.publish(robotCommand)    
         nPublished++
-    }, 20)
-    
+
+    }, 60)    
 }
