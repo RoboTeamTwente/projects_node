@@ -30,7 +30,7 @@ setInterval(function(){
 }, 1000)
 
 
-ros.initNode('/jsNode')
+ros.initNode('/jsNode_' + Date.now())
 .then(driveForward)
 
 const ids = [2, 10];
@@ -41,21 +41,17 @@ function driveForward(rosNode){
 
     let pub = rosNode.advertise('/robotcommands', msgs.msg.RobotCommand);
 
-    let robotCommand = new msgs.msg.RobotCommand()
+    let robotCommand  = new msgs.msg.RobotCommand()
 
-    robotCommand.x_vel = 0.6;
-    robotCommand.y_vel = 0.0;
+    robotCommand.id = 10
 
     setInterval(function(){
-        // if(isNaN(ID)) return
-
-
-        robotCommand.id = ids[nPublished % ids.length];
-        // robotCommand.id = 10
-
-
+        if(isNaN(ID)) return
+        // robotCommand.id = ids[nPublished % ids.length];
+        
+        robotCommand.id = ID;        
         pub.publish(robotCommand)    
         nPublished++
 
-    }, 60)    
+    }, 500)    
 }
