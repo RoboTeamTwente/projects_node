@@ -60,8 +60,10 @@ function waveCallback(values){
         }
         // Rotational velocity
         robotCommand.w = values[2];
+        robotCommand.use_angle = true;
 
         robotCommand.kicker = KICK;
+        robotCommand.kicker_forced = KICK;
         robotCommand.kicker_vel = 3 * KICK;
 
         KICK = false;
