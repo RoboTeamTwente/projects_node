@@ -152,6 +152,7 @@ _.each(state.projects, project => {
 			title : tree.title,
 			project : project.name,
 			id : idFactory,
+			b3id : tree.id,
 			nNodes : _.keys(tree.nodes).length,
 			usage : 0,
 			usedBy : [],
@@ -418,8 +419,56 @@ l("\nScanning through src/utils/StrategyComposer.cpp to see which strategies are
 			// A tree is in StrategyComposer, but it doesn't seem to exist!
 			warning(`Strategy ${tree} assigned to ${refState} does not seem to exist!`)
 		}
-
 	}
+}
+
+// Show all strategies that are unused
+if(false){
+
+	// let newProjectPath = path.join(__dirname, "b3NewProjects");
+	let newProjectPath = state.paths.projects
+	_.each(state.trees, (tree, key) => {
+		if(tree.usage == 0 && tree.type == "STRATEGY"){
+			l(`removing ${tree.id} ${tree.project}/${tree.title}...`)
+			/* Delete tree in state.projects */
+			// Find project
+			let project = _.find(state.projects, {name : tree.project});
+			if(!project)
+				return warning("Could not find project!");
+
+			let treeKey = _.findKey(project.data.trees, {id : tree.b3id})
+			if(!treeKey)
+				return warning("Could not find tree in project!");
+
+			project.data.trees.splice(treeKey, 1)
+		}
+	})
+
+	// === Check for all nodes that are not used once === //
+	_.each(state.nodes, node => {
+		if(node.usage == 0)
+			return;
+
+		l("unused node : " + len(node.name, 40) + " " + node.filepath)
+
+		// For each project, remove node with the same name from project.data.custom_nodes
+		_.each(state.projects, project => {
+			let pNodeId = _.findKey(project.data.custom_nodes, {name : node.name})
+			
+			if(typeof pNodeId !== "undefined"){ // remember, 0 and undefined both return false. Therefore, check on typeof
+				l("    Found in " + project.name + " at " + pNodeId)
+				project.data.custom_nodes.splice(pNodeId, 1);	
+			}
+		})
+	})
+
+
+	fs.ensureDirSync(newProjectPath);
+	_.each(state.projects, project => {
+		fs.writeFileSync(path.join(newProjectPath, project.name + ".b3"), JSON.stringify(project, null, 4));
+	})
+	l("Projects written")
+
 }
 
 
