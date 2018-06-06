@@ -48,10 +48,57 @@ state.trees = {}
 
 let idFactory = 0;
 
+/* ====== A project has the following structure ====== */
+/*  name : "qualification"
+/*  description : "Some description"
+/*  path : 
+/*  data : []
+/*      version
+/*      scope : "project"
+/*      selectedTree : "48acd209-e5b4-480c-ad15-26ed04093125"
+/*
+/*		trees : []
+/*          version : "0.3.0"
+/*  		scope : "tree"
+/*  	    id : "5da8aba4-107b-4ca3-85cd-8eb8b7f44abe"
+/*  		title : "SoloAttackerRole"
+/*  		description : "Some description"
+/*  		root : "96d0e326-bbab-42cf-af50-fe992c62343a"
+/*			nodes : {}
+/*  		  96d0e326-bbab-42cf-af50-fe992c62343a
+/*  			id : "96d0e326-bbab-42cf-af50-fe992c62343a"
+/*  			name : "RepeatUntilSuccess"
+/*  			title : "Repeat Until Success"
+/*  			description : ""
+/*  			properties : {}
+/*  				maxLoop : -1
+/*  			child : "ad6941f8-3730-4bb0-aaab-6d0d3e0d0b5a"
+/*  		  ad6941f8-3730-4bb0-aaab-6d0d3e0d0b5a
+/*  			id : "ad6941f8-3730-4bb0-aaab-6d0d3e0d0b5a"
+/*  			name : "MemSequence"
+/*  			title : "MemSequence"
+/*  			description : ""
+/*  			properties : {}
+/*  			children : []
+/*  				"8c2e0f79-995e-4373-a1f9-a567e83abb7d"
+/*  				"34e6c922-d513-4a3d-8c4b-5d43efa60943"
+/*
+/*		custom_nodes : []
+/*			version : "0.3.0"
+/*			scope : "node"
+/*			name : "GoToPosAlt"
+/*			category : "action"
+/*			title : "GoToPosAlt"
+/*			description : null
+/*			properties : {}
+/*				xGoal : ""
+/*				yGoal : ""
+	
 /* First, load all projects into state */
 // For each project
+l(`Loading projects...`)
 _.each(state.projectNames, projectName => {
-
+	l(`    ${projectName}`)
 	// Load project from file
 	let projectPath = path.join(state.paths.projects, projectName)
 	let projectJson = fs.readFileSync(projectPath, "utf8")
@@ -59,6 +106,7 @@ _.each(state.projectNames, projectName => {
 
 	state.projects[idFactory++] = project
 })
+l(`Projects loaded\n`)
 
 /* For each project, extract nodes and trees */
 _.each(state.projects, project => {
@@ -67,7 +115,7 @@ _.each(state.projects, project => {
 	_.each(project.data.custom_nodes, node => {
 		
 		if(!node.name){		// Fix for some nodes that are "undefined" : { version: '0.3.0', scope: 'node', properties: {} }
-			return warning("node without name", project.name)
+			return warning(`custom node without name in project '${project.name}'`)
 		}
 
 		/* If the node has not been encountered yet, initialize it */
@@ -139,21 +187,30 @@ _.each(state.projects, project => {
 	})
 })
 
+
+
 /* ======== Link filepath and type to corresponding node ======== */
-l("\nLinking all registered files to corresponding node...")
+/* Each node in a tree should have a corresponding file, be it a Strategy or a Skill */
+/* The file is linked to the node by the use of the RTT_REGISTER_*** macros          */
+/* By grepping for these macros, each node can be linked to its corresponding file   */
+
+l("\nLinking each file to corresponding node...")
 // Grep all files for RTT_REGISTER_
 let cmd = "grep -r RTT_REGISTER_"
 let cmdPath = state.paths.src
 let output = execSync(cmd, {encoding : 'utf8', cwd : cmdPath})
 
-// Split output into filename and code
+// Split output into filename and code. E.g : 
+// tactics/KickoffDefensePlay.cpp:RTT_REGISTER_TACTIC(KickoffDefensePlay);
+// ["tactics/KickoffDefensePlay.cpp", "RTT_REGISTER_TACTIC(KickoffDefensePlay)"]
 let filesAndCode = _.map(output.replace(/ /g, "").trim().split("\n"), f => f.split(":"))
-// let filesAndCode = _.map(output.trim().split("\n"), f => f.split(":"))
 
 // For each fileAndCode, find corresponding state.node
 _.each(filesAndCode, ([filename, code]) => {
 
 	let filepath = path.join(state.paths.src, filename)
+	/* This regex retrieves the type and nodename of the file                              */
+	/* e.g. RTT_REGISTER_TACTIC(KickoffDefensePlay) gives ["TACTIC", "KickoffDefensePlay"] */
 	let match, reg = /RTT_REGISTER_(.*?)_?F? ?\((.*)\);/
 	// Execute regex
 	if(match = code.match(reg)){
@@ -187,7 +244,11 @@ _.each(filesAndCode, ([filename, code]) => {
 /* ============================================================== */
 
 /* ==== Check if there as still nodes without filepaths, such as predefined tactics ==== */
-l("\nChecking if each node has an associated file...")
+/* There can be nodes that do not have a file associated with them, because it is not registered with RTT_REGISTER_*** */
+/* Sometimes, the file can be found by looking for the name of the node and appending ".cpp"                           */
+/* However, that might mean that there is a Tactic / Skill / Condition file without RTT_REGISTER... weird              */
+
+l("\nLinking each node to corresponding file...")
 _.each(state.nodes, node => {
 	// If node has filepath, skip
 	if(node.filepath)
