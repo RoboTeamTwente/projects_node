@@ -392,6 +392,35 @@ _.each(state.trees, tree => {
 
 })
 
+// === Look into StrategyComposer === //
+l("\nScanning through src/utils/StrategyComposer.cpp to see which strategies are used at the moment...")
+{ // Scoping to keep the global namespace clean of variables
+	let StrategyComposer = fs.readFileSync(path.join(state.paths.src, "utils", "StrategyComposer.cpp"), {encoding : 'utf8'})
+	// Remove all tabs and whitespace from StrategyComposer, to make the regex easier
+	StrategyComposer = StrategyComposer.replace(/[ \t]/g, "");
+	// Regex that captures    {RefState::NORMAL_START,"rtt_jim/NormalPlay"s}    Ignores commented out lines by using negative lookahead
+	let RefstateToStratRegex = new RegExp(/^(?!\/\/.*$){RefState::(.*?),"(.*?)"s}.*$/, "gm")
+	// Find all RefState->Strategy assignments in StrategyComposer
+	let match, assignments = []
+	while(match = RefstateToStratRegex.exec(StrategyComposer)){
+		// Get RefState and Strategy
+		let [refState, tree] = [match[1], match[2]]
+		l(`    ${len(refState, 25)} ${tree}`)
+		// Get project name and tree title of Strategy
+		let [projectName, treeTitle] = tree.split("/")
+		// Find node that represents tree
+		let key = {project : projectName, title : treeTitle}
+		let nodeId = _.findKey(state.trees, key)
+		if(nodeId){
+			// Increment the usage of the strategy by 1
+			state.trees[nodeId].usage++
+		}else{
+			// A tree is in StrategyComposer, but it doesn't seem to exist!
+			warning(`Strategy ${tree} assigned to ${refState} does not seem to exist!`)
+		}
+
+	}
+}
 
 
 /* ========================================================================================================================== */
