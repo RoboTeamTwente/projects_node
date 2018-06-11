@@ -406,7 +406,6 @@ l("\nScanning through src/utils/StrategyComposer.cpp to see which strategies are
 	while(match = RefstateToStratRegex.exec(StrategyComposer)){
 		// Get RefState and Strategy
 		let [refState, tree] = [match[1], match[2]]
-		l(`    ${len(refState, 25)} ${tree}`)
 		// Get project name and tree title of Strategy
 		let [projectName, treeTitle] = tree.split("/")
 		// Find node that represents tree
@@ -419,6 +418,7 @@ l("\nScanning through src/utils/StrategyComposer.cpp to see which strategies are
 			// A tree is in StrategyComposer, but it doesn't seem to exist!
 			warning(`Strategy ${tree} assigned to ${refState} does not seem to exist!`)
 		}
+		l(`    ${len(refState, 25)} ${len(nodeId, 3)} ${tree}`)
 	}
 }
 
@@ -527,9 +527,9 @@ function showTree(treeId){
 
 		// If the node has parameters set
 		if(_.keys(node.properties).length)
-			l(id + " " + node.name + " | " + _.map(node.properties, (v,k) => k + "="+v ).join(" "))
+			l(id + " " + node.title + " | " + _.map(node.properties, (v,k) => k + "="+v ).join(" "))
 		else
-			l(id + " " + node.name)
+			l(id + " " + node.title)
 		
 		// Add key of node to nodesUsed
 		nodesUsed.push(node.id)
