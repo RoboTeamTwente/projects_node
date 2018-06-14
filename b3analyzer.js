@@ -45,6 +45,7 @@ state.projectNames = _.filter(fs.readdirSync(state.paths.projects), project => p
 state.projects = []
 state.nodes = {}
 state.trees = {}
+state.defaultStrategies = {}	// Stores which trees are used in the StrategyComposer; ref_state => tree_id
 
 let idFactory = 0;
 
@@ -414,6 +415,8 @@ l("\nScanning through src/utils/StrategyComposer.cpp to see which strategies are
 		if(nodeId){
 			// Increment the usage of the strategy by 1
 			state.trees[nodeId].usage++
+			// Store refstate=>tree_id in defaultStrategies
+			state.defaultStrategies[refState] = nodeId
 		}else{
 			// A tree is in StrategyComposer, but it doesn't seem to exist!
 			warning(`Strategy ${tree} assigned to ${refState} does not seem to exist!`)
@@ -645,6 +648,12 @@ function showProjectTrees(projectId){
 	printTable(trees, ['id', 'title', 'nNodes'], ['title'], ['asc'])
 }
 
+function showDefaultStrategies(){
+	l("\nSTRATEGIES USED IN STRATEGYCOMPOSER")
+	_.each(state.defaultStrategies, (treeId, refState) => {
+		l(`    ${len(refState, 25)} ${len(treeId, 3)} ${state.trees[treeId].title}`)
+	})
+}
 /* ========================================================================================================================== */
 /* ============================================================ REPL ======================================================== */
 /* ========================================================================================================================== */
@@ -723,6 +732,10 @@ function repl(){
 				printTable(state.trees, ['id', 'title', 'usage', 'type'], sortArgs, sortDirs)
 			else
 				printTable(state.trees, ['id', 'title', 'usage', 'type'], ['usage'], ['desc'])
+		}
+
+		if(args[0] == "d"){
+			showDefaultStrategies();
 		}
 	}
 }
