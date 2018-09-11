@@ -699,7 +699,7 @@ function repl(){
 			if(node){
 				if(args[1] == "open")
 					if(node.filepath)
-						execSync("subl " + node.filepath)
+						execSync("xdg-open " + node.filepath)
 					else
 						warning("node " + node.id + " " + node.name + " has no associated file")
 				else
