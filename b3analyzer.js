@@ -32,7 +32,7 @@ let state = {}
 state.paths = {}
 
 // Workspace path
-state.paths.ws = process.env.ROS_PACKAGE_PATH.split(":")[0]
+state.paths.ws = path.join(process.env.RTT_ROOT, "workspace", "src")
 // roboteam_tactics/src path
 state.paths.src = path.join(state.paths.ws, "roboteam_tactics", "src")
 // roboteam_tactics/include/roboteam_tactics path
