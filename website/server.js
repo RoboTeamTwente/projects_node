@@ -8,27 +8,23 @@ let express = require('express');
 let path    = require('path');
 let _       = require('lodash');
 
+let STATE = {};
 
 // ==== ROS ==== //
 let ros     = require('rosnodejs');
 let msgs_list = ros.getAvailableMessagePackages();
 let roboteam_msgs = require(msgs_list.roboteam_msgs);
-let robotCommand = new roboteam_msgs.msg.RobotCommand();
 let pub = null;
 let rosNode = null;
+
 ros.initNode('/jsNode').then(_rosNode => {
     l("ROS initialized");
-
     rosNode = _rosNode;
-    pub = rosNode.advertise('/robotcommands', roboteam_msgs.msg.RobotCommand);
+    pub = rosNode.advertise('/robotcommands', roboteam_msgs.msg.RobotCommand, {queueSize : 16});
     STATE.ros = true;
     updateState();
-
 });
 // ============= //
-
-
-let STATE = {};
 
 let NCLIENTS = 0;
 let KICK = false;
@@ -41,12 +37,13 @@ function waveCallback(values){
 	io.sockets.emit('tick', values);
 
 	if(STATE.ros) {
-        robotCommand.id = STATE.robot_id;
+        
+        let cmd = {}
 
         // X and Y velocity
         if(STATE.mode === "cartesian"){
-            robotCommand.x_vel = values[0];
-            robotCommand.y_vel = values[1];
+            cmd.x_vel = values[0];
+            cmd.y_vel = values[1];
         }else
         if(STATE.mode === "polar"){
             let rho = values[0];
@@ -55,24 +52,30 @@ function waveCallback(values){
             let x = rho * Math.cos(theta);
             let y = rho * Math.sin(theta);
 
-            robotCommand.x_vel = x;
-            robotCommand.y_vel = y;
+            cmd.x_vel = x;
+            cmd.y_vel = y;
         }
         // Rotational velocity
-        robotCommand.w = values[2];
-        robotCommand.use_angle = true;
+        cmd.w = values[2];
+        cmd.use_angle = true;
 
-        robotCommand.kicker = KICK;
-        robotCommand.kicker_forced = KICK;
-        robotCommand.kicker_vel = 3 * KICK;
+        cmd.kicker = KICK;
+        cmd.kicker_forced = KICK;
+        cmd.kicker_vel = 3 * KICK;
 
         KICK = false;
 
-        robotCommand.chipper = CHIP;
-        robotCommand.chipper_vel = CHIP * 3;
+        cmd.chipper = CHIP;
+        cmd.chipper_vel = CHIP * 3;
+
         CHIP = false;
 
-        pub.publish(robotCommand);
+        for(let iRobot = 0; iRobot < 16; iRobot++){
+            if(STATE.robots[iRobot]){
+                cmd.id = iRobot;
+                pub.publish(new roboteam_msgs.msg.RobotCommand(cmd));
+            }
+        }
     }
 }
 
@@ -91,8 +94,12 @@ function initializeState(){
         })
     }
 
+    let robots = []
+    for(let i = 0; i < 16; i++)
+        robots[i] = false
+
     let state = {
-        robot_id : 0,
+        robots,
         ros : false,
         waveManager : waveManager.getState(),
         mode : "cartesian"
@@ -107,15 +114,20 @@ function updateState(){
     handleNewState(STATE);
 }
 
+/* Sends state to a single socket */
 function sendState(socket){
     l("[Socket] Emitting state to client");
     socket.emit('state', STATE);
 }
+/* Sends state to all sockets */
 function broadcastState(){
     l("[Socket] Broadcasting state to all clients");
     io.sockets.emit('state', STATE);
 }
 
+/* Handles a new state received from a socket */
+/* 1. Updates its own state */
+/* 2. Broadcasts is own updated state */
 function handleNewState(state){
 
     l("\n[State] Handling new state");
@@ -161,10 +173,10 @@ io.on('connection', function(socket){
     l("\n\nClient connected");
     NCLIENTS++;
 
-    // Send state to socket
+    // Send state to newly connected socket
     sendState(socket);
 
-    // Received wave settings
+    // Received new state from socket
     socket.on('state', function(state){
         l('[Socket] New state received!');
         // l(JSON.stringify(state, null, 4));

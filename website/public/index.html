@@ -76,30 +76,80 @@
 				</div> <!-- // For each wave -->
 			</div>
 
+			<!-- MODE, ROBOTS 0 - 7, START -->
 			<div class="row" style="margin-top : 10px;">
-				<div class="col-md-2">
-					<div class="input-group input-group-sm mb-12">
-						<div class="input-group-prepend">
-							<span class="input-group-text" id="inputGroup-sizing-sm">Robot ID</span>
-						</div>
-						<input v-model="state.robot_id" @change="stateChanged" type="text" class="form-control" :disabled="disabled">
-					</div>
-				</div>
 
 				<div class="col-md-2">
 					<button v-on:click="toggleMode" type="button" class="btn btn-primary btn-sm btn-block" :disabled="!connected || !state.ros">Mode : {{ state.mode}}</button>
 				</div>
 
-				<div class="col-md-4">
-					<button v-on:click="toggleRunning" type="button" :class="btn.class" class="btn btn-sm btn-block" :disabled="!connected || !state.ros">{{ btn.text }}</button>
+				<div v-on:click="toggleRobot(0)" class="col-md-1">
+					<button class="btn btn-sm btn-block" :disabled="disabled" v-bind:class="[ state.robots[0] ? 'btn-success' : 'btn-light' ]">0</button>
+				</div>
+				<div v-on:click="toggleRobot(1)" class="col-md-1">
+					<button class="btn btn-sm btn-block" :disabled="disabled" v-bind:class="[ state.robots[1] ? 'btn-success' : 'btn-light' ]">1</button>
+				</div>
+				<div v-on:click="toggleRobot(2)" class="col-md-1">
+					<button class="btn btn-sm btn-block" :disabled="disabled" v-bind:class="[ state.robots[2] ? 'btn-success' : 'btn-light' ]">2</button>
+				</div>
+				<div v-on:click="toggleRobot(3)" class="col-md-1">
+					<button class="btn btn-sm btn-block" :disabled="disabled" v-bind:class="[ state.robots[3] ? 'btn-success' : 'btn-light' ]">3</button>
+				</div>
+				<div v-on:click="toggleRobot(4)" class="col-md-1">
+					<button class="btn btn-sm btn-block" :disabled="disabled" v-bind:class="[ state.robots[4] ? 'btn-success' : 'btn-light' ]">4</button>
+				</div>
+				<div v-on:click="toggleRobot(5)" class="col-md-1">
+					<button class="btn btn-sm btn-block" :disabled="disabled" v-bind:class="[ state.robots[5] ? 'btn-success' : 'btn-light' ]">5</button>
+				</div>
+				<div v-on:click="toggleRobot(6)" class="col-md-1">
+					<button class="btn btn-sm btn-block" :disabled="disabled" v-bind:class="[ state.robots[6] ? 'btn-success' : 'btn-light' ]">6</button>
+				</div>
+				<div v-on:click="toggleRobot(7)" class="col-md-1">
+					<button class="btn btn-sm btn-block" :disabled="disabled" v-bind:class="[ state.robots[7] ? 'btn-success' : 'btn-light' ]">7</button>
 				</div>
 
 				<div class="col-md-2">
 					<button v-on:click="kick" type="button" class="btn btn-sm btn-block btn-warning" :disabled="!connected || !state.ros|| !state.waveManager.running"> Kick! </button>
 				</div>
+
+			</div>
+
+			<!-- KICK, ROBOTS 8 - 15, CHIP -->
+			<div class="row" style="margin-top : 10px;">
+
+				<div class="col-md-2">
+					<button v-on:click="toggleRunning" type="button" :class="btn.class" class="btn btn-sm btn-block" :disabled="!connected || !state.ros">{{ btn.text }}</button>
+				</div>
+
+				<div v-on:click="toggleRobot(8)" class="col-md-1">
+					<button class="btn btn-sm btn-block" :disabled="disabled" v-bind:class="[ state.robots[8] ? 'btn-success' : 'btn-light' ]">8</button>
+				</div>
+				<div v-on:click="toggleRobot(9)" class="col-md-1">
+					<button class="btn btn-sm btn-block" :disabled="disabled" v-bind:class="[ state.robots[9] ? 'btn-success' : 'btn-light' ]">9</button>
+				</div>
+				<div v-on:click="toggleRobot(10)" class="col-md-1">
+					<button class="btn btn-sm btn-block" :disabled="disabled" v-bind:class="[ state.robots[10] ? 'btn-success' : 'btn-light' ]">10</button>
+				</div>
+				<div v-on:click="toggleRobot(11)" class="col-md-1">
+					<button class="btn btn-sm btn-block" :disabled="disabled" v-bind:class="[ state.robots[11] ? 'btn-success' : 'btn-light' ]">11</button>
+				</div>
+				<div v-on:click="toggleRobot(12)" class="col-md-1">
+					<button class="btn btn-sm btn-block" :disabled="disabled" v-bind:class="[ state.robots[12] ? 'btn-success' : 'btn-light' ]">12</button>
+				</div>
+				<div v-on:click="toggleRobot(13)" class="col-md-1">
+					<button class="btn btn-sm btn-block" :disabled="disabled" v-bind:class="[ state.robots[13] ? 'btn-success' : 'btn-light' ]">13</button>
+				</div>
+				<div v-on:click="toggleRobot(14)" class="col-md-1">
+					<button class="btn btn-sm btn-block" :disabled="disabled" v-bind:class="[ state.robots[14] ? 'btn-success' : 'btn-light' ]">14</button>
+				</div>
+				<div v-on:click="toggleRobot(15)" class="col-md-1">
+					<button class="btn btn-sm btn-block" :disabled="disabled" v-bind:class="[ state.robots[15] ? 'btn-success' : 'btn-light' ]">15</button>
+				</div>
+
 				<div class="col-md-2">
 					<button v-on:click="chip" type="button" class="btn btn-sm btn-block btn-warning" :disabled="!connected || !state.ros|| !state.waveManager.running"> Chip! </button>
 				</div>
+
 			</div>
 
 			<br>
@@ -154,6 +204,7 @@
 					Hz : 0,
 
 					state : {
+						robots : [false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false],
 						robot_id : 0,
 						ros : false,
 						mode : null,
@@ -196,9 +247,15 @@
                         this.stateChanged()
                     },
 
+                    toggleRobot : function(iRobot){
+                    	console.log("Toggling robot " + iRobot + " to " + !this.state.robots[iRobot])
+                    	this.state.robots[iRobot] = !this.state.robots[iRobot];
+                    	this.stateChanged()
+                    },
+
 					stateChanged : function(){
 						socket.emit("state", this.state);
-						console.log("State change emitted")
+						console.log("State change emitted");
 					},
 
 					setConnection : function(isConnected){
@@ -236,6 +293,10 @@
 				},
 
 				mounted : function(){
+					window.addEventListener("keypress", function(e) {
+				    	console.log(String.fromCharCode(e.keyCode));
+				    });
+
 					console.log("App mounted")
 				}
 			});
@@ -276,7 +337,7 @@
 
             socket.on('state', state => {
 				console.log("\nNew state received")
-                console.log(JSON.stringify(state, null, 4));
+                // console.log(JSON.stringify(state, null, 4));
 
                 let findDifferences = (o1, o2, key="", keys=[]) => {
                     _.each(o1, (v, k) => {
