@@ -7,24 +7,42 @@ let io      = require('socket.io')();
 let express = require('express');
 let path    = require('path');
 let _       = require('lodash');
+let zmq 	= require('zeromq')
+let protobuf= require("protobufjs");
 
 let STATE = {};
 
 // ==== ROS ==== //
-let ros     = require('rosnodejs');
-let msgs_list = ros.getAvailableMessagePackages();
-let roboteam_msgs = require(msgs_list.roboteam_msgs);
-let pub = null;
-let rosNode = null;
+// let ros     = require('rosnodejs');
+// let msgs_list = ros.getAvailableMessagePackages();
+// let roboteam_msgs = require(msgs_list.roboteam_msgs);
+// let pub = null;
+// let rosNode = null;
 
-ros.initNode('/jsNode').then(_rosNode => {
-    l("ROS initialized");
-    rosNode = _rosNode;
-    pub = rosNode.advertise('/robotcommands', roboteam_msgs.msg.RobotCommand, {queueSize : 16});
-    STATE.ros = true;
-    updateState();
-});
+// ros.initNode('/jsNode').then(_rosNode => {
+//     l("ROS initialized");
+//     rosNode = _rosNode;
+//     pub = rosNode.advertise('/robotcommands', roboteam_msgs.msg.RobotCommand, {queueSize : 16});
+//     STATE.ros = true;
+//     updateState();
+// });
 // ============= //
+
+// ==== ZeroMQ ==== //
+let sock = zmq.socket("push")
+sock.bindSync("tcp://127.0.0.1:5559");
+
+RTT_ROOT = process.env.RTT_ROOT
+PB_FOLDER = path.join(RTT_ROOT, "roboteam_suite", "roboteam_proto", "proto" )
+ROBOT_COMMAND_FILE = path.join(PB_FOLDER, "RobotCommand.proto")
+
+protobuf.load(ROBOT_COMMAND_FILE, function(idk, whatthisis){
+	console.log("Yay")
+	l(idk)
+})
+
+console.log(PB_FOLDER)
+return 
 
 let NCLIENTS = 0;
 let KICK = false;

@@ -13,7 +13,9 @@
     "express": "^4.16.3",
     "lodash": "^4.17.5",
     "path": "^0.12.7",
+    "protobufjs": "^6.8.8",
     "rosnodejs": "^2.2.0",
-    "socket.io": "^2.1.0"
+    "socket.io": "^2.1.0",
+    "zeromq": "^5.1.0"
   }
 }
