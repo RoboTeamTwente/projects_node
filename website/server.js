@@ -32,36 +32,79 @@ let STATE = {};
 let sock = zmq.socket("push")
 sock.bindSync("tcp://127.0.0.1:5559");
 
-RTT_ROOT = process.env.RTT_ROOT
-PB_FOLDER = path.join(RTT_ROOT, "roboteam_suite", "roboteam_proto", "proto" )
-ROBOT_COMMAND_FILE = path.join(PB_FOLDER, "RobotCommand.proto")
+RTT_ROOT = process.env.RTT_ROOT || "/home/emiel/Desktop/roboteam/"
+ROBOT_COMMAND_FILE = path.join(RTT_ROOT, "roboteam_suite", "roboteam_proto", "proto", "RobotCommand.proto")
 
-protobuf.load(ROBOT_COMMAND_FILE, function(idk, whatthisis){
-	console.log("Yay")
-	l(idk)
-})
+RobotCommand = null
 
-console.log(PB_FOLDER)
-return 
+
+// 	payload = {
+// 		"id" : 1,
+// 		"active" : true,
+// 		"vel" : 0.1,
+// 		"w" : 0.1,
+// 		"use_angle" : true,
+// 		"dribbler" : false,
+// 		"kicker" : false,
+// 		"chipper" : true,
+	    
+// 	    "chip_kick_forced" : true,
+//     	"chip_kick_vel" : 3,
+//     	"geneva_state" : 3
+// 	}
+// 	let msg = RobotCommand.create(payload)
+// 	l(msg)
+
+
+// })
 
 let NCLIENTS = 0;
 let KICK = false;
 let CHIP = false;
 
 let Wave = require('./WaveGenerator.js');
-const waveManager = new Wave.WaveManager(waveCallback, 50);
+const waveManager = new Wave.WaveManager(waveCallback, 10);
 
 function waveCallback(values){
 	io.sockets.emit('tick', values);
+
+	l('tick')
+
+	payload = {
+		"id" : 1,
+		"active" : true,
+		"vel" : {
+			"x" : 0.1,
+			"y" : 0.1,
+		},
+		"w" : 0.1,
+		"use_angle" : true,
+		"dribbler" : false,
+		"kicker" : false,
+		"chipper" : true,
+	    
+	    "chip_kick_forced" : true,
+    	"chip_kick_vel" : 3,
+    	"geneva_state" : 3
+	}
 
 	if(STATE.ros) {
         
         let cmd = {}
 
+    	// let x, y = [values[0], values[1]]
+    	// r = Math.sqrt(x*x + y*y)
+    	// theta = Math.tanh(x / y)
+    	// payload['vel'] = r
+     	// payload['w'] = theta
+
         // X and Y velocity
         if(STATE.mode === "cartesian"){
             cmd.x_vel = values[0];
             cmd.y_vel = values[1];
+
+            payload['vel']['x'] = values[0]
+            payload['vel']['y'] = values[1]
         }else
         if(STATE.mode === "polar"){
             let rho = values[0];
@@ -72,28 +115,44 @@ function waveCallback(values){
 
             cmd.x_vel = x;
             cmd.y_vel = y;
+
+            payload['vel']['x'] = x
+            payload['vel']['y'] = y
         }
         // Rotational velocity
         cmd.w = values[2];
         cmd.use_angle = true;
 
+        payload['w'] = values[2]
+        payload['use_angle'] = true;
+
         cmd.kicker = KICK;
         cmd.kicker_forced = KICK;
         cmd.kicker_vel = 3 * KICK;
 
-        KICK = false;
+        payload['kicker'] = KICK;
+        payload['chipper'] = CHIP;
+
+        payload['chip_kick_forced'] = KICK || CHIP;
+        payload['chip_kick_vel'] = 3 * (KICK || CHIP);
 
         cmd.chipper = CHIP;
         cmd.chipper_vel = CHIP * 3;
 
+        KICK = false;
         CHIP = false;
+              
 
-        for(let iRobot = 0; iRobot < 16; iRobot++){
-            if(STATE.robots[iRobot]){
-                cmd.id = iRobot;
-                pub.publish(new roboteam_msgs.msg.RobotCommand(cmd));
-            }
-        }
+        // for(let iRobot = 0; iRobot < 16; iRobot++){
+        //     if(STATE.robots[iRobot]){
+        //         cmd.id = iRobot;
+        //         // pub.publish(new roboteam_msgs.msg.RobotCommand(cmd));
+        //     }
+        // }
+        msg = RobotCommand.encode(payload).finish()
+        l(msg)
+
+        sock.send(msg)
     }
 }
 
@@ -224,15 +283,34 @@ handleNewState(initializeState());
 
 // ==== SERVER STUFF ==== //
 
-let app = express();
-let server = require('http').createServer(app);
-app.use(express.static(path.join(__dirname, 'public')));
 
-server.listen(SERVER_PORT, () => {
-    l("Server listening at", SERVER_PORT);
-    io.listen(3001);
-    l("IO listening at", IO_PORT);
-});
+(async function(){
+	l("\n[Main] Starting up services...")
+	
+	let app = express();
+	let server = require('http').createServer(app);
+	app.use(express.static(path.join(__dirname, 'public')));
+
+	/* Load the RobotCommand msg from RobotCommand.proto */
+	_root = await protobuf.load(ROBOT_COMMAND_FILE)
+	RobotCommand = _root.lookupType("roboteam_proto.RobotCommand")
+	l("[Main] RobotCommand loaded");
+
+	await server.listen(SERVER_PORT)
+	l("[Main] Server listening at", SERVER_PORT);
+    await io.listen(3001);
+    l("[Main] IO listening at", IO_PORT);
+
+    STATE.ros = true
+    updateState()
+
+})().catch(function(err){
+	l("[Main] Error occured on initialization :", err.message)
+	process.exit()
+})
+
+
+
 
 // ==== Helper functions ==== //
 function isEqual(obj1, obj2){
